@@ -1,0 +1,11 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <PackageReference Include="Ardalis.Result" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AgentLedger.Core\AgentLedger.Core.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,12 @@
+# For more info on HTTP files go to https://aka.ms/vs/httpfile
+@host=http://localhost
+@port=57678
+
+// Health check (Development only)
+GET {{host}}:{{port}}/health
+
+
+###
+
+// Is the API up?
+GET {{host}}:{{port}}/status

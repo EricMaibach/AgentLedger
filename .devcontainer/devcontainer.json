@@ -1,0 +1,21 @@
+{
+  "name": "AgentLedger Dev",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "devcontainer",
+  "workspaceFolder": "/workspace",
+  "remoteUser": "vscode",
+  "features": {
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    // Lets tests (Testcontainers) start throwaway containers via the host's Docker
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-dotnettools.csdevkit",
+        "anthropic.claude-code",
+        "ms-ossdata.vscode-pgsql"
+      ]
+    }
+  }
+}

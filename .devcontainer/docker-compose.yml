@@ -1,0 +1,42 @@
+name: agentledger-dev
+
+services:
+  devcontainer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: sleep infinity
+    volumes:
+      - ..:/workspace:cached
+      - claude-config:/home/vscode/.claude
+    environment:
+      # Keeps .claude.json inside the persisted volume too
+      - CLAUDE_CONFIG_DIR=/home/vscode/.claude
+      # Dev-only credentials; the database is not exposed outside this compose network
+      - ConnectionStrings__AgentLedger=Host=postgres;Port=5432;Database=agentledger;Username=agentledger;Password=agentledger
+      - PGHOST=postgres
+      - PGDATABASE=agentledger
+      - PGUSER=agentledger
+      - PGPASSWORD=agentledger
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:18
+    environment:
+      - POSTGRES_DB=agentledger
+      - POSTGRES_USER=agentledger
+      - POSTGRES_PASSWORD=agentledger
+    volumes:
+      # Postgres 18+ images expect the mount at /var/lib/postgresql (not .../data)
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agentledger -d agentledger"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  claude-config:
+  postgres-data:
