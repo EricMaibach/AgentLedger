@@ -14,5 +14,6 @@ Each file records one significant decision: the context, what was decided, and t
 | [0008](0008-read-only-mcp-server.md) | Expose the ledger to AI through a read-only MCP server | Accepted |
 | [0009](0009-ledger-storage-details.md) | Ledger storage: exact `json` payloads, snake_case names, `created_at`/`updated_at` watermarks | Accepted |
 | [0010](0010-raw-landing-accepts-duplicates.md) | Raw landing accepts duplicates (receipts); deduplicate downstream by `AgentEventId` | Accepted |
+| [0011](0011-ingest-envelope-contract.md) | `POST /events` envelope: kebab-case agents, raw JSON payload, 201/400/500 semantics | Accepted |
 
 New ADRs: copy the structure of an existing one (Status, Context, Decision, Consequences) and use the next number.

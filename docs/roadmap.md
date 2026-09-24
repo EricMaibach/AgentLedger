@@ -39,41 +39,40 @@ agent hook ──stdin──► agentledger CLI ──HTTP──► API ──�
 - [x] Raw event aggregate: `AgentEventId`, `AgentKind`, `CaptureContext`, with unit tests
 - [x] EF Core mapping + first migration ([ADR 0009](adr/0009-ledger-storage-details.md)), with integration tests on Testcontainers
 - [x] Raw table holds receipts: `AgentEventReceipt` with `ReceiptId` + `EventId`, duplicates landed ([ADR 0010](adr/0010-raw-landing-accepts-duplicates.md))
-- [ ] **`IngestEvent` use case (command + handler)** ← next task
-- [ ] `POST /events` endpoint
-- [ ] `agentledger` CLI: `hook <agent>` with envelope, timeout, spool, always exit 0
+- [x] `IngestEvent` use case: command + handler, registered with Mediator
+- [x] `POST /events` endpoint ([ADR 0011](adr/0011-ingest-envelope-contract.md) envelope contract)
+- [ ] **`agentledger` CLI: `hook <agent>` with envelope, timeout, spool, always exit 0** ← next task
 - [ ] Claude Code hooks registered through the CLI; a real session captured end to end
 
 **Phase 1 is done when:**
 - every hook event from a real Claude Code session is stored in Postgres, with its payload intact;
 - a resend produces an extra receipt, and each agent event is still identifiable once by `event_id` (deduplication itself comes with projections).
 
-## Next task: `IngestEvent` use case
+## Next task: the `agentledger` CLI
 
-**Goal:** a command that records one received message as an `AgentEventReceipt`. It's the application logic behind `POST /events`.
+**Goal:** hooks call `agentledger hook <agent>`. The CLI reads the payload from stdin, wraps it in the envelope ([ADR 0011](adr/0011-ingest-envelope-contract.md)) and POSTs it, and it never disrupts the agent ([ADR 0002](adr/0002-hook-ingestion-via-cli.md)).
 
-**Work** (tests first, in `tests/AgentLedger.UnitTests/UseCases/`):
-1. `UseCases/AgentEventReceipts/Ingest/IngestEventCommand.cs`: the envelope fields (including the client's event ID) plus the raw payload string. It returns `Result<ReceiptId>`.
-2. `UseCases/AgentEventReceipts/Ingest/IngestEventHandler.cs`:
-   - generates the `ReceiptId` (UUIDv7) and takes `ReceivedAt` from an injected `TimeProvider`;
-   - maps the agent name to `AgentKind`, where an unknown agent is `Result.Invalid`;
-   - builds the receipt, turning guard-clause failures into `Result.Invalid` with the field name;
-   - saves it through `IRepository<AgentEventReceipt>`;
-   - returns `Result.Created(receiptId)`.
-   - **No duplicate check:** every accepted message is a new receipt.
-3. Register Mediator scanning: add a Core type and a UseCases type to `options.Assemblies` in `Web/Configurations/MediatorConfig.cs`. The source generator rejects assemblies that don't use Mediator yet, which is why they're absent today.
+This adds a new project, so the design is discussed first. Topics:
+- project layout (`src/AgentLedger.Cli` plus a test project) and Native AOT constraints;
+- `System.CommandLine`;
+- spool location and format, and when resends happen;
+- config file format and locations;
+- how git context is collected.
+
+**Requirements already decided:**
+- **Always exits 0,** whatever happens, with a short HTTP timeout.
+- **Building the envelope:**
+  - a new UUIDv7 `eventId` per invocation;
+  - `capturedAt` is the current time;
+  - host, user and project dir (`CLAUDE_PROJECT_DIR` for Claude Code);
+  - git repo, branch and worktree;
+  - `AGENTLEDGER_TAG_*` → `tags`, with keys lowercased (`AGENTLEDGER_TAG_Story` becomes `story`), because environment variable names are case-sensitive on Linux but not on Windows;
+  - stdin embedded as the raw-JSON `payload`.
+- **Retry behavior:** on 500 or a network failure, write the envelope to the spool and resend it on a later run. On 400, log the error and drop the event: it's malformed, and resending won't help.
+- **Config resolution:** `AGENTLEDGER_URL`, then project config, then user config, then the localhost default.
+- No reference to Core.
 
 **Afterwards (rest of Phase 1):**
-- **`POST /events` endpoint:**
-  - The request body is the CLI envelope, with the payload taken as raw JSON text (not re-serialized, so it stays byte-for-byte).
-  - Returns 201 with the receipt ID for every accepted message (resends included), and 400 with validation details for invalid input (`ResultExtensions`).
-  - The envelope contract (field names, and how agents are identified on the wire, e.g. `claude-code` vs `ClaudeCode`) is defined here and consumed by the CLI.
-- **CLI (`src/AgentLedger.Cli`):**
-  - Native AOT, `System.CommandLine`, and no reference to Core.
-  - Config resolution: `AGENTLEDGER_URL`, then project config, then user config, then the localhost default.
-  - It records git context and `AGENTLEDGER_TAG_*`. Tag keys are normalized to lowercase (`AGENTLEDGER_TAG_Story` becomes `story`), because environment variable names are case-sensitive on Linux but not on Windows.
-  - Spool directory, with resend on the next run.
-  - Unit tests for envelope building and the spool.
 - **End to end:** register the CLI in `.claude/settings.json` for every Claude Code hook event, run a real session, and verify every event against the probe captures.
 
 **Deferred from the EF mapping task:**

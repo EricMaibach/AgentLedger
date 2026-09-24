@@ -1,4 +1,6 @@
-﻿using AgentLedger.Infrastructure;
+﻿using AgentLedger.Core.AgentEventReceiptAggregate;
+using AgentLedger.Infrastructure;
+using AgentLedger.UseCases.AgentEventReceipts.Ingest;
 using Ardalis.SharedKernel;
 
 namespace AgentLedger.Web.Configurations;
@@ -16,9 +18,8 @@ public static class MediatorConfig
       // One type from each assembly to scan for handlers.
       options.Assemblies =
       [
-        // Add a type from Core and from UseCases here once they contain handlers
-        // (e.g. typeof(AgentEventReceipt), typeof(IngestEventCommand)). The generator rejects
-        // assemblies that don't use Mediator yet, so they are left out of the empty skeleton.
+        typeof(AgentEventReceipt),                // Core
+        typeof(IngestEventCommand),               // UseCases
         typeof(InfrastructureServiceExtensions), // Infrastructure
         typeof(MediatorConfig)                  // Web
       ];

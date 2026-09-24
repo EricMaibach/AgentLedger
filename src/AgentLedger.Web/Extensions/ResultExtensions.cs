@@ -10,11 +10,25 @@ public static class ResultExtensions
   public static Results<Created<TResponse>, ValidationProblem, ProblemHttpResult> ToCreatedResult<TValue, TResponse>(
     this Result<TValue> result,
     Func<TValue, string> locationBuilder,
+    Func<TValue, TResponse> mapResponse) =>
+    CreatedOrProblem(result, value => locationBuilder(value), mapResponse);
+
+  /// <summary>
+  /// Created without a Location header, for created resources that have no URL of their own (yet).
+  /// </summary>
+  public static Results<Created<TResponse>, ValidationProblem, ProblemHttpResult> ToCreatedResult<TValue, TResponse>(
+    this Result<TValue> result,
+    Func<TValue, TResponse> mapResponse) =>
+    CreatedOrProblem(result, _ => null, mapResponse);
+
+  private static Results<Created<TResponse>, ValidationProblem, ProblemHttpResult> CreatedOrProblem<TValue, TResponse>(
+    Result<TValue> result,
+    Func<TValue, string?> locationBuilder,
     Func<TValue, TResponse> mapResponse)
   {
     return result.Status switch
     {
-      ResultStatus.Ok => TypedResults.Created(locationBuilder(result.Value), mapResponse(result.Value)),
+      ResultStatus.Ok or ResultStatus.Created => TypedResults.Created(locationBuilder(result.Value), mapResponse(result.Value)),
       ResultStatus.Invalid => TypedResults.ValidationProblem(
         result.ValidationErrors
           .GroupBy(e => e.Identifier ?? string.Empty)

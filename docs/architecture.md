@@ -65,7 +65,7 @@ Web ──► UseCases ──► Core
 | **Aggregate root** | In use | Derive from `EntityBase<TSelf, TId>` and implement `IAggregateRoot`. Only aggregate roots get repositories. Group each aggregate in a folder: `Core/<Name>Aggregate/`. |
 | **Strongly-typed ID** | In use | A Vogen `[ValueObject<Guid>] readonly partial struct` with a `Validate` method. Never use bare `Guid`/`int` for identity. The `VogenDefaults` assembly attribute lives in `AgentEventId.cs`; there is one per assembly. |
 | **Value object (single value)** | In use | Vogen, as for IDs. Use it for a primitive with rules (e.g. an email address, a bounded string). |
-| **Value object (multiple values)** | In use | A positional `record`, for value equality and immutability. Example: `CaptureContext`. |
+| **Value object (multiple values)** | In use | A positional `record`, for value equality and immutability. Example: `CaptureContext`. To validate, redeclare the property with a guard in its initializer and a `private init` accessor (EF only maps properties with a setter; `private` stops `with` from bypassing the guard): `public string Host { get; private init; } = Guard.Against.NullOrWhiteSpace(Host, "host");` |
 | **Fixed set of values** | In use | A `sealed` `SmartEnum<T>` with a `private` constructor, rather than a C# `enum`: it rejects invalid values and can carry behavior. Use `nameof` for names. **Never renumber values once persisted.** |
 | **Guard clauses** | In use | Validate every constructor input with `Guard.Against.*`, and assign the returned value (`X = Guard.Against.NullOrWhiteSpace(x)`). Use `Guard.Against.Default` for structs such as `DateTimeOffset`, because `Null` never fires on a struct. |
 | **Immutability** | In use | Properties are `{ get; private set; }`, and there are no mutators unless the domain needs them. Collections passed in are **copied** in the constructor (defensive copy) and exposed read-only. |
@@ -78,8 +78,8 @@ Web ──► UseCases ──► Core
 
 | Pattern | Status | When and how |
 |---|---|---|
-| **Command / query + handler** | Available (next up) | Source-generated `Mediator`. One folder per use case: `UseCases/<Feature>/<Action>/` holding `<Action>Command` (or `Query`) and `<Action>Handler`. Commands change state; queries don't. |
-| **`Result<T>`** | Available (next up) | Handlers return `Ardalis.Result` (`Success`, `Invalid`, `NotFound`, `Conflict`, `Error`) for expected outcomes. Exceptions are only for bugs and infrastructure failures. |
+| **Command / query + handler** | In use | Source-generated `Mediator`. One folder per use case: `UseCases/<Feature>/<Action>/` holding `<Action>Command` (or `Query`) and `<Action>Handler`. Commands change state; queries don't. |
+| **`Result<T>`** | In use | Handlers return `Ardalis.Result` (`Success`, `Invalid`, `NotFound`, `Conflict`, `Error`) for expected outcomes. Exceptions are only for bugs and infrastructure failures. Check lookups that can fail with `TryFrom`/`TryFromName` up front; wrap only domain construction in `try`, catch only `ArgumentException` (guard clauses), and report it as `ValidationError(ex.ParamName, ex.Message)`. Identifiers are the camelCase request field names. Never catch-all: save failures must propagate (HTTP 500, so clients retry). |
 | **Repository** | Available | `IRepository<T>` for writes and `IReadRepository<T>` for reads, both implemented once by the generic `EfRepository<T>`. Don't write one repository per entity. |
 | **Query service** | Available | For read models that bypass the domain (reporting, lists, projections): an interface in UseCases, implemented in Infrastructure with EF or SQL. |
 | **Paging** | Available | `PagedResult<T>`, with limits from `UseCases/Constants.cs`. |
