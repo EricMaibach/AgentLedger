@@ -13,8 +13,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace AgentLedger.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260923234242_InitialAgentEvents")]
-    partial class InitialAgentEvents
+    [Migration("20260924002553_InitialAgentEventReceipts")]
+    partial class InitialAgentEventReceipts
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -26,7 +26,7 @@ namespace AgentLedger.Infrastructure.Data.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("AgentLedger.Core.AgentEventAggregate.AgentEvent", b =>
+            modelBuilder.Entity("AgentLedger.Core.AgentEventReceiptAggregate.AgentEventReceipt", b =>
                 {
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
@@ -44,6 +44,10 @@ namespace AgentLedger.Infrastructure.Data.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
+
+                    b.Property<Guid>("EventId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("event_id");
 
                     b.Property<string>("EventType")
                         .IsRequired()
@@ -72,7 +76,7 @@ namespace AgentLedger.Infrastructure.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
 
-                    b.ComplexProperty(typeof(Dictionary<string, object>), "Context", "AgentLedger.Core.AgentEventAggregate.AgentEvent.Context#CaptureContext", b1 =>
+                    b.ComplexProperty(typeof(Dictionary<string, object>), "Context", "AgentLedger.Core.AgentEventReceiptAggregate.AgentEventReceipt.Context#CaptureContext", b1 =>
                         {
                             b1.IsRequired();
 
@@ -105,23 +109,26 @@ namespace AgentLedger.Infrastructure.Data.Migrations
                         });
 
                     b.HasKey("Id")
-                        .HasName("pk_agent_events");
+                        .HasName("pk_agent_event_receipts");
 
                     b.HasIndex("CapturedAt")
-                        .HasDatabaseName("ix_agent_events_captured_at");
+                        .HasDatabaseName("ix_agent_event_receipts_captured_at");
+
+                    b.HasIndex("EventId")
+                        .HasDatabaseName("ix_agent_event_receipts_event_id");
 
                     b.HasIndex("Tags")
-                        .HasDatabaseName("ix_agent_events_tags");
+                        .HasDatabaseName("ix_agent_event_receipts_tags");
 
                     NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("Tags"), "gin");
 
                     b.HasIndex("UpdatedAt")
-                        .HasDatabaseName("ix_agent_events_updated_at");
+                        .HasDatabaseName("ix_agent_event_receipts_updated_at");
 
                     b.HasIndex("Agent", "NativeSessionId")
-                        .HasDatabaseName("ix_agent_events_agent_native_session_id");
+                        .HasDatabaseName("ix_agent_event_receipts_agent_native_session_id");
 
-                    b.ToTable("agent_events", (string)null);
+                    b.ToTable("agent_event_receipts", (string)null);
                 });
 #pragma warning restore 612, 618
         }

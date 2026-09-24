@@ -1,4 +1,4 @@
-﻿namespace AgentLedger.Core.AgentEventAggregate;
+﻿namespace AgentLedger.Core.AgentEventReceiptAggregate;
 
 public sealed class AgentKind : SmartEnum<AgentKind>
 {

@@ -6,16 +6,17 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace AgentLedger.Infrastructure.Data.Migrations;
 
 /// <inheritdoc />
-public partial class InitialAgentEvents : Migration
+public partial class InitialAgentEventReceipts : Migration
 {
   /// <inheritdoc />
   protected override void Up(MigrationBuilder migrationBuilder)
   {
     migrationBuilder.CreateTable(
-        name: "agent_events",
+        name: "agent_event_receipts",
         columns: table => new
         {
           id = table.Column<Guid>(type: "uuid", nullable: false),
+          event_id = table.Column<Guid>(type: "uuid", nullable: false),
           agent = table.Column<string>(type: "text", nullable: false),
           event_type = table.Column<string>(type: "text", nullable: false),
           native_session_id = table.Column<string>(type: "text", nullable: true),
@@ -34,28 +35,33 @@ public partial class InitialAgentEvents : Migration
         },
         constraints: table =>
         {
-          table.PrimaryKey("pk_agent_events", x => x.id);
+          table.PrimaryKey("pk_agent_event_receipts", x => x.id);
         });
 
     migrationBuilder.CreateIndex(
-        name: "ix_agent_events_agent_native_session_id",
-        table: "agent_events",
+        name: "ix_agent_event_receipts_agent_native_session_id",
+        table: "agent_event_receipts",
         columns: new[] { "agent", "native_session_id" });
 
     migrationBuilder.CreateIndex(
-        name: "ix_agent_events_captured_at",
-        table: "agent_events",
+        name: "ix_agent_event_receipts_captured_at",
+        table: "agent_event_receipts",
         column: "captured_at");
 
     migrationBuilder.CreateIndex(
-        name: "ix_agent_events_tags",
-        table: "agent_events",
+        name: "ix_agent_event_receipts_event_id",
+        table: "agent_event_receipts",
+        column: "event_id");
+
+    migrationBuilder.CreateIndex(
+        name: "ix_agent_event_receipts_tags",
+        table: "agent_event_receipts",
         column: "tags")
         .Annotation("Npgsql:IndexMethod", "gin");
 
     migrationBuilder.CreateIndex(
-        name: "ix_agent_events_updated_at",
-        table: "agent_events",
+        name: "ix_agent_event_receipts_updated_at",
+        table: "agent_event_receipts",
         column: "updated_at");
   }
 
@@ -63,6 +69,6 @@ public partial class InitialAgentEvents : Migration
   protected override void Down(MigrationBuilder migrationBuilder)
   {
     migrationBuilder.DropTable(
-        name: "agent_events");
+        name: "agent_event_receipts");
   }
 }

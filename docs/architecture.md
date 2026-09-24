@@ -92,8 +92,8 @@ Web ──► UseCases ──► Core
 | **EF Core configuration** | In use | One `IEntityTypeConfiguration<T>` per aggregate in `Infrastructure/Data/Config/`, picked up automatically. Map Vogen types with `HasVogenConversion()` (list the type in `Config/VogenEfCoreConverters.cs`), SmartEnums by name, value objects as complex types (`ComplexProperty`). Postgres-specific types (`jsonb`, GIN indexes) are chosen here, never in Core. |
 | **Migrations** | In use | EF Core migrations in `Infrastructure/Data/Migrations/`, created with the local `dotnet-ef` tool (`dotnet tool restore` once): `dotnet ef migrations add <Name> --project src/AgentLedger.Infrastructure --startup-project src/AgentLedger.Web --output-dir Data/Migrations`. Applied automatically in Development and on demand elsewhere (`Database:ApplyMigrationsOnStartup`). |
 | **Configuration** | In use | The connection string is `ConnectionStrings:AgentLedger`, supplied by the environment. No secrets in `appsettings*.json`. |
-| **Database naming** | In use | snake_case table and column names (`agent_events.event_type`) via `EFCore.NamingConventions`. C# names are unaffected. |
-| **Audit timestamps** | In use | **Every** table has `created_at` and `updated_at` (`timestamptz`), including append-only tables, for uniformity. They are shadow properties added to every entity by `AuditTimestampsConvention` and set by `AuditTimestampsInterceptor` (time from `TimeProvider`), not by the domain: they are storage bookkeeping, separate from domain times such as `AgentEvent.ReceivedAt`. `updated_at` is indexed on any table that is processed incrementally. |
+| **Database naming** | In use | snake_case table and column names (`agent_event_receipts.event_type`) via `EFCore.NamingConventions`. C# names are unaffected. |
+| **Audit timestamps** | In use | **Every** table has `created_at` and `updated_at` (`timestamptz`), including append-only tables, for uniformity. They are shadow properties added to every entity by `AuditTimestampsConvention` and set by `AuditTimestampsInterceptor` (time from `TimeProvider`), not by the domain: they are storage bookkeeping, separate from domain times such as `AgentEventReceipt.ReceivedAt`. `updated_at` is indexed on any table that is processed incrementally. |
 | **Incremental processing** | Available | Watermarks over `updated_at`; see below. |
 
 #### Incremental processing (watermarks)
@@ -119,8 +119,8 @@ Any process that reads new or changed rows (e.g. a projection builder) works in 
 - **Unit tests:** Core and UseCases, with no I/O. Use NSubstitute for interfaces, and `NoOpMediator` where a handler needs a mediator.
 - **Integration tests:** Infrastructure against **real Postgres via Testcontainers** (`postgres:18`, matching the dev database). Never use the EF in-memory provider; it hides SQL and `jsonb` behavior.
 - **Functional tests:** the full API through `CustomWebApplicationFactory`, which boots the real app pointed at a Testcontainers database. Per-test settings that `Program` reads during startup (such as the connection string) must be applied with `UseSetting`: `ConfigureAppConfiguration` applies too late, and the dev container's environment variables would win. `DatabaseConnectivity` asserts the app is connected to the test container.
-- **Test Data Builders:** each aggregate gets a builder (e.g. `AgentEventBuilder`) that produces a valid object. Tests change only the value they are about.
-- **Naming:** one test class per behavior of the unit under test (`AgentEventConstructor`, `AgentEventIdFrom`); method names state the expected behavior (`RejectsMissingPayload`).
+- **Test Data Builders:** each aggregate gets a builder (e.g. `AgentEventReceiptBuilder`) that produces a valid object. Tests change only the value they are about.
+- **Naming:** one test class per behavior of the unit under test (`AgentEventReceiptConstructor`, `AgentEventIdFrom`); method names state the expected behavior (`RejectsMissingPayload`).
 - **Assertions:** Shouldly, with one exception: for "throws" tests, use `Assert.ThrowsAny<TException>(...)` (accepts subclasses) or `Should.Throw<T>`. **Do not** use `Record.Exception(...)` followed by `ShouldBeAssignableTo<T>()`: it passes when nothing is thrown.
 - **Never weaken, skip or delete a test to get to green.** If a test is wrong, fix it and say why.
 

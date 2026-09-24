@@ -1,6 +1,6 @@
 # 0002. Hook ingestion via a CLI
 
-- **Status:** Accepted
+- **Status:** Accepted (duplicate handling amended by [ADR 0010](0010-raw-landing-accepts-duplicates.md): the client ID identifies duplicates for downstream deduplication; ingestion no longer deduplicates)
 - **Date:** 2026-09-23
 
 ## Context

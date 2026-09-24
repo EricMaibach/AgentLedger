@@ -12,7 +12,7 @@ How it works (see ADRs [0001](adr/0001-raw-event-ledger-with-projections.md), [0
 
 ```
 agent hook ──stdin──► agentledger CLI ──HTTP──► API ──► Postgres
-                      (envelope, spool,          (ingest      agent_events (append-only)
+                      (envelope, spool,          (ingest      agent_event_receipts
                        always exit 0)             use case)       │
                                                                   ▼
                                                         projections: sessions, turns,
@@ -36,8 +36,9 @@ agent hook ──stdin──► agentledger CLI ──HTTP──► API ──�
 - [x] Dev container with Postgres 18 (`.devcontainer/`)
 - [x] Hook research and real Claude Code payload captures (`docs/research/agent-hook-capabilities.md`)
 - [x] Solution skeleton from the Clean Architecture template ([ADR 0007](adr/0007-clean-architecture-template-without-aspire.md)); `GET /status`; Testcontainers-based functional tests
-- [x] `AgentEvent` aggregate: `AgentEventId`, `AgentKind`, `CaptureContext`, with unit tests
-- [x] EF Core mapping + first migration (`agent_events`, [ADR 0009](adr/0009-ledger-storage-details.md)), with integration tests on Testcontainers
+- [x] Raw event aggregate: `AgentEventId`, `AgentKind`, `CaptureContext`, with unit tests
+- [x] EF Core mapping + first migration ([ADR 0009](adr/0009-ledger-storage-details.md)), with integration tests on Testcontainers
+- [x] Raw table holds receipts: `AgentEventReceipt` with `ReceiptId` + `EventId`, duplicates landed ([ADR 0010](adr/0010-raw-landing-accepts-duplicates.md))
 - [ ] **`IngestEvent` use case (command + handler)** ← next task
 - [ ] `POST /events` endpoint
 - [ ] `agentledger` CLI: `hook <agent>` with envelope, timeout, spool, always exit 0
@@ -45,39 +46,39 @@ agent hook ──stdin──► agentledger CLI ──HTTP──► API ──�
 
 **Phase 1 is done when:**
 - every hook event from a real Claude Code session is stored in Postgres, with its payload intact;
-- events generated while the API is down arrive after it comes back, without duplicates.
+- a resend produces an extra receipt, and each agent event is still identifiable once by `event_id` (deduplication itself comes with projections).
 
 ## Next task: `IngestEvent` use case
 
-**Goal:** a command that records one captured event, idempotently. This is the application logic behind `POST /events`.
+**Goal:** a command that records one received message as an `AgentEventReceipt`. It's the application logic behind `POST /events`.
 
 **Work** (tests first, in `tests/AgentLedger.UnitTests/UseCases/`):
-1. `UseCases/AgentEvents/Ingest/IngestEventCommand.cs`: the envelope fields plus the raw payload string. It returns `Result<AgentEventId>`.
-2. `UseCases/AgentEvents/Ingest/IngestEventHandler.cs`:
-   - takes `ReceivedAt` from an injected `TimeProvider`;
+1. `UseCases/AgentEventReceipts/Ingest/IngestEventCommand.cs`: the envelope fields (including the client's event ID) plus the raw payload string. It returns `Result<ReceiptId>`.
+2. `UseCases/AgentEventReceipts/Ingest/IngestEventHandler.cs`:
+   - generates the `ReceiptId` (UUIDv7) and takes `ReceivedAt` from an injected `TimeProvider`;
    - maps the agent name to `AgentKind`, where an unknown agent is `Result.Invalid`;
-   - builds the `AgentEvent`, turning guard-clause failures into `Result.Invalid` with the field name;
-   - saves through `IRepository<AgentEvent>`.
-3. **Idempotency:** if an event with the same ID already exists, return success with that ID and don't insert. Decide between "check then insert" (with a race between two concurrent resends, caught by the primary key) and "insert, and treat a primary-key violation as success". Either way, a duplicate must never be an error to the caller.
-4. Register Mediator scanning: add a Core type and a UseCases type to `options.Assemblies` in `Web/Configurations/MediatorConfig.cs`. The source generator rejects assemblies that don't use Mediator yet, which is why they're absent today.
-5. Register `TimeProvider.System` for the Web host, if Infrastructure's registration doesn't already cover the use case.
+   - builds the receipt, turning guard-clause failures into `Result.Invalid` with the field name;
+   - saves it through `IRepository<AgentEventReceipt>`;
+   - returns `Result.Created(receiptId)`.
+   - **No duplicate check:** every accepted message is a new receipt.
+3. Register Mediator scanning: add a Core type and a UseCases type to `options.Assemblies` in `Web/Configurations/MediatorConfig.cs`. The source generator rejects assemblies that don't use Mediator yet, which is why they're absent today.
 
 **Afterwards (rest of Phase 1):**
 - **`POST /events` endpoint:**
   - The request body is the CLI envelope, with the payload taken as raw JSON text (not re-serialized, so it stays byte-for-byte).
-  - Returns 201 for a new event, 200 for a duplicate, and 400 with validation details for invalid input (`ResultExtensions`).
+  - Returns 201 with the receipt ID for every accepted message (resends included), and 400 with validation details for invalid input (`ResultExtensions`).
   - The envelope contract (field names, and how agents are identified on the wire, e.g. `claude-code` vs `ClaudeCode`) is defined here and consumed by the CLI.
 - **CLI (`src/AgentLedger.Cli`):**
   - Native AOT, `System.CommandLine`, and no reference to Core.
   - Config resolution: `AGENTLEDGER_URL`, then project config, then user config, then the localhost default.
-  - It records git context and `AGENTLEDGER_TAG_*`.
+  - It records git context and `AGENTLEDGER_TAG_*`. Tag keys are normalized to lowercase (`AGENTLEDGER_TAG_Story` becomes `story`), because environment variable names are case-sensitive on Linux but not on Windows.
   - Spool directory, with resend on the next run.
   - Unit tests for envelope building and the spool.
 - **End to end:** register the CLI in `.claude/settings.json` for every Claude Code hook event, run a real session, and verify every event against the probe captures.
 
 **Deferred from the EF mapping task:**
 - An index on `context_git_repo` / `context_git_branch`. EF 10 can't declare an index on complex-type columns. Add it with `migrationBuilder.Sql` when a projection or query actually filters by repo or branch.
-- `AgentEventBuilder` lives in the unit test project, while the integration tests use a small local factory. If a third test project needs one, move the builder into a shared test-support project.
+- `AgentEventReceiptBuilder` lives in the unit test project, while the integration tests use a small local factory. If a third test project needs one, move the builder into a shared test-support project.
 
 ## Later phases (outline)
 
@@ -86,6 +87,7 @@ agent hook ──stdin──► agentledger CLI ──HTTP──► API ──�
   - Subagent transcripts too (`agent_transcript_path` from `SubagentStop`).
   - Token usage and model per assistant message come from here.
 - **Projections (Phase 3):**
+  - **Agent events** (`agent_events`): receipts deduplicated by `event_id` with idempotent upserts ([ADR 0010](adr/0010-raw-landing-accepts-duplicates.md)). Probably the first projection, since the others build on it.
   - **Sessions:** keyed by `(agent, native session ID)`, with activity periods and an inferred end ([ADR 0004](adr/0004-session-end-is-inferred.md)), plus lineage (clear, resume, fork) recorded as relationships.
   - **Turns:** grouped by Claude Code's `prompt_id`.
   - **Tool calls:** Pre/Post paired by `tool_use_id`, failures included.

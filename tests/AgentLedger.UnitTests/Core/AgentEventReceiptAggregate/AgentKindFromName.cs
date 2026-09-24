@@ -1,7 +1,7 @@
-﻿using AgentLedger.Core.AgentEventAggregate;
+﻿using AgentLedger.Core.AgentEventReceiptAggregate;
 using Ardalis.SmartEnum;
 
-namespace AgentLedger.UnitTests.Core.AgentEventAggregate;
+namespace AgentLedger.UnitTests.Core.AgentEventReceiptAggregate;
 
 public sealed class AgentKindFromName
 {

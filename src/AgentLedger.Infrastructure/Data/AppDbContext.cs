@@ -1,4 +1,4 @@
-﻿using AgentLedger.Core.AgentEventAggregate;
+﻿using AgentLedger.Core.AgentEventReceiptAggregate;
 
 namespace AgentLedger.Infrastructure.Data;
 
@@ -9,7 +9,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
   public const string CreatedAt = nameof(CreatedAt);
   public const string UpdatedAt = nameof(UpdatedAt);
 
-  public DbSet<AgentEvent> AgentEvents => Set<AgentEvent>();
+  public DbSet<AgentEventReceipt> AgentEventReceipts => Set<AgentEventReceipt>();
 
   protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder) =>
     configurationBuilder.Conventions.Add(_ => new AuditTimestampsConvention());

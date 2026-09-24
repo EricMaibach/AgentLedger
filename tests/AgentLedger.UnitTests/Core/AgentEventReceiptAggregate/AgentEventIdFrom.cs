@@ -1,7 +1,7 @@
-﻿using AgentLedger.Core.AgentEventAggregate;
+﻿using AgentLedger.Core.AgentEventReceiptAggregate;
 using Vogen;
 
-namespace AgentLedger.UnitTests.Core.AgentEventAggregate;
+namespace AgentLedger.UnitTests.Core.AgentEventReceiptAggregate;
 
 public sealed class AgentEventIdFrom
 {
@@ -22,7 +22,7 @@ public sealed class AgentEventIdFrom
   [Fact]
   public void EqualsAnotherIdWithTheSameGuid()
   {
-    // Value equality is what makes a retried event recognisable as the same event.
+    // Value equality is what makes a resent event recognisable as the same agent event.
     var guid = Guid.CreateVersion7();
 
     AgentEventId.From(guid).ShouldBe(AgentEventId.From(guid));

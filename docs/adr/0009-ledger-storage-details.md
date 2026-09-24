@@ -1,6 +1,6 @@
 # 0009. Ledger storage: exact payloads, snake_case, audit timestamps
 
-- **Status:** Accepted
+- **Status:** Accepted (the raw table is now `agent_event_receipts`; see [ADR 0010](0010-raw-landing-accepts-duplicates.md))
 - **Date:** 2026-09-23
 
 ## Context

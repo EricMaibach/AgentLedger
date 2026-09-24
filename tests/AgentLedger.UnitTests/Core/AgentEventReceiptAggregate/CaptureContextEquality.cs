@@ -1,6 +1,6 @@
-﻿using AgentLedger.Core.AgentEventAggregate;
+﻿using AgentLedger.Core.AgentEventReceiptAggregate;
 
-namespace AgentLedger.UnitTests.Core.AgentEventAggregate;
+namespace AgentLedger.UnitTests.Core.AgentEventReceiptAggregate;
 
 public sealed class CaptureContextEquality
 {

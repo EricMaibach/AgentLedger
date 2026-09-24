@@ -13,5 +13,6 @@ Each file records one significant decision: the context, what was decided, and t
 | [0007](0007-clean-architecture-template-without-aspire.md) | Start from the Ardalis Clean Architecture template, without the Aspire AppHost | Accepted |
 | [0008](0008-read-only-mcp-server.md) | Expose the ledger to AI through a read-only MCP server | Accepted |
 | [0009](0009-ledger-storage-details.md) | Ledger storage: exact `json` payloads, snake_case names, `created_at`/`updated_at` watermarks | Accepted |
+| [0010](0010-raw-landing-accepts-duplicates.md) | Raw landing accepts duplicates (receipts); deduplicate downstream by `AgentEventId` | Accepted |
 
 New ADRs: copy the structure of an existing one (Status, Context, Decision, Consequences) and use the next number.

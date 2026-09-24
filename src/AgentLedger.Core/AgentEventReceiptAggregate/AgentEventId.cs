@@ -1,7 +1,7 @@
 ﻿using Vogen;
 [assembly: VogenDefaults(staticAbstractsGeneration: StaticAbstractsGeneration.MostCommon | StaticAbstractsGeneration.InstanceMethodsAndProperties)]
 
-namespace AgentLedger.Core.AgentEventAggregate;
+namespace AgentLedger.Core.AgentEventReceiptAggregate;
 
 [ValueObject<Guid>]
 public readonly partial struct AgentEventId

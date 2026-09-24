@@ -17,7 +17,7 @@ public static class MediatorConfig
       options.Assemblies =
       [
         // Add a type from Core and from UseCases here once they contain handlers
-        // (e.g. typeof(AgentEvent), typeof(IngestEventCommand)). The generator rejects
+        // (e.g. typeof(AgentEventReceipt), typeof(IngestEventCommand)). The generator rejects
         // assemblies that don't use Mediator yet, so they are left out of the empty skeleton.
         typeof(InfrastructureServiceExtensions), // Infrastructure
         typeof(MediatorConfig)                  // Web
