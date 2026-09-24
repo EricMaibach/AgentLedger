@@ -1,4 +1,5 @@
 ﻿using AgentLedger.Infrastructure.Data;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace AgentLedger.Infrastructure;
 
@@ -13,13 +14,18 @@ public static class InfrastructureServiceExtensions
     string? connectionString = config.GetConnectionString("AgentLedger");
     Guard.Against.NullOrEmpty(connectionString);
 
+    services.TryAddSingleton(TimeProvider.System); // tests register a fake clock first
     services.AddScoped<EventDispatchInterceptor>();
+    services.AddScoped<AuditTimestampsInterceptor>();
     services.AddScoped<IDomainEventDispatcher, MediatorDomainEventDispatcher>();
 
     services.AddDbContext<AppDbContext>((provider, options) =>
     {
-      options.UseNpgsql(connectionString);
-      options.AddInterceptors(provider.GetRequiredService<EventDispatchInterceptor>());
+      options.UseNpgsql(connectionString)
+             .UseSnakeCaseNamingConvention();
+      options.AddInterceptors(
+        provider.GetRequiredService<AuditTimestampsInterceptor>(),
+        provider.GetRequiredService<EventDispatchInterceptor>());
     });
 
     services.AddScoped(typeof(IRepository<>), typeof(EfRepository<>))

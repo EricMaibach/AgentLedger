@@ -12,5 +12,6 @@ Each file records one significant decision: the context, what was decided, and t
 | [0006](0006-postgresql.md) | PostgreSQL for storage | Accepted |
 | [0007](0007-clean-architecture-template-without-aspire.md) | Start from the Ardalis Clean Architecture template, without the Aspire AppHost | Accepted |
 | [0008](0008-read-only-mcp-server.md) | Expose the ledger to AI through a read-only MCP server | Accepted |
+| [0009](0009-ledger-storage-details.md) | Ledger storage: exact `json` payloads, snake_case names, `created_at`/`updated_at` watermarks | Accepted |
 
 New ADRs: copy the structure of an existing one (Status, Context, Decision, Consequences) and use the next number.

@@ -27,4 +27,8 @@ public sealed class AgentEvent : EntityBase<AgentEvent, AgentEventId>, IAggregat
 
   }
 
+#pragma warning disable CS8618
+  private AgentEvent() { }
+#pragma warning restore CS8618
+
 }

@@ -1,6 +1,5 @@
 ﻿using AgentLedger.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Testcontainers.PostgreSql;
 
 namespace AgentLedger.FunctionalTests;
@@ -38,14 +37,11 @@ public sealed class CustomWebApplicationFactory<TProgram> : WebApplicationFactor
     return host;
   }
 
-  protected override void ConfigureWebHost(IWebHostBuilder builder)
-  {
-    // Point the app's normal registration at the container instead of replacing the DbContext,
-    // so tests exercise the same AddInfrastructureServices wiring as production.
-    builder.ConfigureAppConfiguration((_, config) =>
-      config.AddInMemoryCollection(new Dictionary<string, string?>
-      {
-        ["ConnectionStrings:AgentLedger"] = _dbContainer.GetConnectionString()
-      }));
-  }
+  public string ConnectionString => _dbContainer.GetConnectionString();
+
+  protected override void ConfigureWebHost(IWebHostBuilder builder) =>
+    // UseSetting, not ConfigureAppConfiguration: Program reads the connection string while registering
+    // services, before ConfigureAppConfiguration overrides apply. Environment variables (the dev
+    // container sets ConnectionStrings__AgentLedger) would otherwise win, and tests would hit the dev database.
+    builder.UseSetting("ConnectionStrings:AgentLedger", ConnectionString);
 }

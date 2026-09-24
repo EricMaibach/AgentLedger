@@ -1,6 +1,6 @@
 # 0006. PostgreSQL for storage
 
-- **Status:** Accepted
+- **Status:** Accepted (payload column type amended by [ADR 0009](0009-ledger-storage-details.md): `json`, not `jsonb`)
 - **Date:** 2026-09-23
 
 ## Context

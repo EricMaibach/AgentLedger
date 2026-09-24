@@ -1,17 +1,19 @@
 ﻿using AgentLedger.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
 
 namespace AgentLedger.FunctionalTests.Data;
 
-// Smoke test for the skeleton: the app's own DI wiring can reach a Postgres Testcontainer.
+// The app's own DI wiring connects to the test's Postgres container.
 public sealed class DatabaseConnectivity(CustomWebApplicationFactory<Program> factory) : IClassFixture<CustomWebApplicationFactory<Program>>
 {
   [Fact]
-  public async Task AppDbContextConnectsToPostgres()
+  public async Task AppDbContextUsesTheTestContainer()
   {
     using var scope = factory.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
+    // Must be the throwaway container, never the dev database from the environment.
+    db.Database.GetConnectionString().ShouldBe(factory.ConnectionString);
     (await db.Database.CanConnectAsync()).ShouldBeTrue();
-    db.Database.ProviderName.ShouldBe("Npgsql.EntityFrameworkCore.PostgreSQL");
   }
 }

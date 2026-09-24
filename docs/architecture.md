@@ -21,6 +21,7 @@ If you are an AI agent working on this repository: follow this document. If a ta
 - **Make invalid states unrepresentable.** Validate at construction. An object that exists is valid.
 - **Start simple and evolve.** Build for today's requirement. No speculative code, abstractions or "just in case" features. A pattern in the [catalogue](#pattern-catalogue) marked *available* is pulled in the first time it's needed, not before. When it is needed, use it: don't improvise an alternative.
 - **Keep the raw truth.** Anything derived can be rebuilt from what was captured (see [ADR 0001](adr/0001-raw-event-ledger-with-projections.md)).
+- **All data processing is idempotent.** Re-running any process over the same input produces the same result, so retries, overlapping runs and replays are always safe.
 
 ## Solution structure
 
@@ -88,9 +89,21 @@ Web ──► UseCases ──► Core
 
 | Pattern | Status | When and how |
 |---|---|---|
-| **EF Core configuration** | Available (next up) | One `IEntityTypeConfiguration<T>` per aggregate in `Infrastructure/Data/Config/`, picked up automatically. Map Vogen types with value converters. Postgres-specific types (`jsonb`, GIN indexes) are chosen here, never in Core. |
-| **Migrations** | Available | EF Core migrations in `Infrastructure/Data/Migrations/`. Applied automatically in Development and on demand elsewhere (`Database:ApplyMigrationsOnStartup`). |
+| **EF Core configuration** | In use | One `IEntityTypeConfiguration<T>` per aggregate in `Infrastructure/Data/Config/`, picked up automatically. Map Vogen types with `HasVogenConversion()` (list the type in `Config/VogenEfCoreConverters.cs`), SmartEnums by name, value objects as complex types (`ComplexProperty`). Postgres-specific types (`jsonb`, GIN indexes) are chosen here, never in Core. |
+| **Migrations** | In use | EF Core migrations in `Infrastructure/Data/Migrations/`, created with the local `dotnet-ef` tool (`dotnet tool restore` once): `dotnet ef migrations add <Name> --project src/AgentLedger.Infrastructure --startup-project src/AgentLedger.Web --output-dir Data/Migrations`. Applied automatically in Development and on demand elsewhere (`Database:ApplyMigrationsOnStartup`). |
 | **Configuration** | In use | The connection string is `ConnectionStrings:AgentLedger`, supplied by the environment. No secrets in `appsettings*.json`. |
+| **Database naming** | In use | snake_case table and column names (`agent_events.event_type`) via `EFCore.NamingConventions`. C# names are unaffected. |
+| **Audit timestamps** | In use | **Every** table has `created_at` and `updated_at` (`timestamptz`), including append-only tables, for uniformity. They are shadow properties added to every entity by `AuditTimestampsConvention` and set by `AuditTimestampsInterceptor` (time from `TimeProvider`), not by the domain: they are storage bookkeeping, separate from domain times such as `AgentEvent.ReceivedAt`. `updated_at` is indexed on any table that is processed incrementally. |
+| **Incremental processing** | Available | Watermarks over `updated_at`; see below. |
+
+#### Incremental processing (watermarks)
+
+Any process that reads new or changed rows (e.g. a projection builder) works in bounded windows:
+
+1. Read the stored **low** watermark.
+2. Take the **high** watermark as `max(updated_at)` minus a short safety lag (a few seconds). Rows only become visible at commit, while their timestamp is taken earlier, at transaction start. The lag lets in-flight transactions commit before their window is closed.
+3. Process the rows where `low < updated_at <= high`, **idempotently**. Ties and overlap are harmless.
+4. Store high as the next low.
 
 ### Web
 
@@ -105,7 +118,7 @@ Web ──► UseCases ──► Core
 - **Test first.** Write the tests before the implementation, and **see each new test fail for the right reason** before making it pass. A test that is green before its implementation exists is broken.
 - **Unit tests:** Core and UseCases, with no I/O. Use NSubstitute for interfaces, and `NoOpMediator` where a handler needs a mediator.
 - **Integration tests:** Infrastructure against **real Postgres via Testcontainers** (`postgres:18`, matching the dev database). Never use the EF in-memory provider; it hides SQL and `jsonb` behavior.
-- **Functional tests:** the full API through `CustomWebApplicationFactory`, which boots the real app pointed at a Testcontainers database.
+- **Functional tests:** the full API through `CustomWebApplicationFactory`, which boots the real app pointed at a Testcontainers database. Per-test settings that `Program` reads during startup (such as the connection string) must be applied with `UseSetting`: `ConfigureAppConfiguration` applies too late, and the dev container's environment variables would win. `DatabaseConnectivity` asserts the app is connected to the test container.
 - **Test Data Builders:** each aggregate gets a builder (e.g. `AgentEventBuilder`) that produces a valid object. Tests change only the value they are about.
 - **Naming:** one test class per behavior of the unit under test (`AgentEventConstructor`, `AgentEventIdFrom`); method names state the expected behavior (`RejectsMissingPayload`).
 - **Assertions:** Shouldly, with one exception: for "throws" tests, use `Assert.ThrowsAny<TException>(...)` (accepts subclasses) or `Should.Throw<T>`. **Do not** use `Record.Exception(...)` followed by `ShouldBeAssignableTo<T>()`: it passes when nothing is thrown.

@@ -40,6 +40,7 @@ Requirements: Docker and VS Code with the Dev Containers extension.
 1. Open the repository in VS Code and choose **Reopen in Container**. This starts a .NET 10 SDK container plus PostgreSQL 18. `psql` works with no arguments.
 2. Build and test:
    ```bash
+   dotnet tool restore  # local tools (dotnet-ef)
    dotnet build
    dotnet test        # functional tests start a throwaway Postgres container via Testcontainers
    ```
