@@ -1,6 +1,6 @@
 # Agent Hook Capabilities — Research (2026-09-23)
 
-What each agent exposes for capturing activity and identifying session/agent boundaries. Compiled from official docs (and Codex source) by research agents; **not yet verified empirically except where marked ✔︎ verified**. Claude Code was verified with a capture probe on 2026-09-23; see "Claude Code: captured payloads". Vendors change these fast — re-check before building each adapter, and capture real payloads first (see "Next step").
+What each agent exposes for capturing activity and identifying session/agent boundaries. Compiled from official docs (and Codex source) by research agents; **not yet verified empirically except where marked ✔︎ verified**. Claude Code was verified with a capture probe on 2026-09-23; see "Claude Code: captured payloads". Vendors change these fast — re-check before building each adapter, and capture real payloads first (see "Capture status").
 
 Legend: ✅ supported · ⚠️ partial/caveat · ❌ not available · ? undocumented
 
@@ -190,9 +190,10 @@ These fields contain conversation text:
 
 The probe's `.env` capture redacted the secret-like vars it found (e.g. `CLAUDE_CODE_MESSAGING_TOKEN`).
 
-## Next step: capture probe
+## Capture status
 
-Several payloads are undocumented or contradictory. Before designing the adapters, build a probe:
-1. Write a hook that dumps stdin and the environment for **every** event.
-2. Run a scripted session in each tool that covers a prompt, tool use, a subagent, compaction, resume and fork.
-3. Commit the captured payloads as **golden-file test fixtures** for the adapters.
+Payloads are captured with a probe hook (`tools/probe/capture.sh`) that dumps stdin and a redacted environment for every event.
+
+- **Claude Code:** captured (see "Claude Code: captured payloads" above). Not yet triggered: permission request/denied, fork, `UserPromptExpansion`.
+- **Codex, Copilot, Cortex Code:** not yet captured. Capture each before writing its adapter.
+- Sanitized captures will become golden-file test fixtures for the adapters. Raw captures contain conversation text and are not committed.

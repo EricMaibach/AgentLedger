@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x # global.json allows roll-forward; match the dev container's latest 10.0 SDK
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Check formatting
+        run: dotnet format --verify-no-changes --no-restore
+
+      - name: Build
+        run: dotnet build --configuration Release --no-restore
+
+      # Integration and functional tests start Postgres containers through Testcontainers,
+      # using the Docker daemon that GitHub-hosted Ubuntu runners provide.
+      - name: Test
+        run: dotnet test --configuration Release --no-build --logger "console;verbosity=normal"

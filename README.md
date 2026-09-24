@@ -1,5 +1,7 @@
 # AgentLedger
 
+[![CI](https://github.com/EricMaibach/AgentLedger/actions/workflows/ci.yml/badge.svg)](https://github.com/EricMaibach/AgentLedger/actions/workflows/ci.yml)
+
 An auditable ledger of what AI coding agents do.
 
 AgentLedger hooks into coding agents (Claude Code, Codex, GitHub Copilot, Snowflake Cortex Code) and records everything they expose: prompts, tool calls, responses, reasoning and token usage. Everything goes into a single PostgreSQL store, so that people and other AI can review, measure and correlate agent activity across tools.

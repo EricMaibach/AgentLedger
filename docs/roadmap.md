@@ -26,7 +26,7 @@ agent hook ──stdin──► agentledger CLI ──HTTP──► API ──�
 1. **Capture (current).** Every hook event from Claude Code lands in Postgres as a raw event.
 2. **Transcripts. Critical, and immediately after capture.** The CLI reads agent transcripts incrementally, capturing assistant responses, reasoning and per-message token usage, which hooks don't expose.
 3. **Projections and reading.** Sessions, turns and tool calls derived from raw events. A query API and the read-only MCP server ([ADR 0008](adr/0008-read-only-mcp-server.md)).
-4. **Delivery.** CI (GitHub Actions: build, test, format check, architecture tests) and a container image.
+4. **Delivery.** CI (GitHub Actions: build, test, format check, architecture tests) and a container image. A minimal CI workflow (format check, build, all tests) already runs on every push (`.github/workflows/ci.yml`); this phase adds architecture tests and the container image.
 5. **More agents.** Capture real payloads, then an adapter per agent: Codex, Copilot CLI, VS Code Copilot, Cortex Code.
 
 ## Status
