@@ -6,6 +6,11 @@
   "remoteUser": "vscode",
   // Dogfooding: build the agentledger CLI and install its Claude Code hooks (docs/adr/0014)
   "postCreateCommand": ".devcontainer/install-agentledger.sh",
+  // The stable ledger publishes 58090 on the Docker host. If VS Code auto-forwarded that port from this
+  // container, the forward could hold it and stop the ledger stack from starting.
+  "portsAttributes": {
+    "58090": { "onAutoForward": "ignore" }
+  },
   "features": {
     "ghcr.io/devcontainers/features/github-cli:1": {},
     // Lets tests (Testcontainers) start throwaway containers via the host's Docker

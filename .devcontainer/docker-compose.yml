@@ -6,7 +6,7 @@ services:
       context: .
       dockerfile: Dockerfile
     command: sleep infinity
-    # Lets the container reach services published on this machine, like the stable ledger on port 58080.
+    # Lets the container reach services published on this machine, like the stable ledger on port 58090.
     # (Docker Desktop provides host.docker.internal; Docker Engine on Linux needs this mapping.)
     extra_hosts:
       - host.docker.internal:host-gateway
@@ -23,7 +23,7 @@ services:
       - PGUSER=agentledger
       - PGPASSWORD=agentledger
       # Dogfooding (docs/adr/0014): hook events go to the stable ledger (deploy/compose.yml), not the dev API
-      - AGENTLEDGER_URL=http://host.docker.internal:58080
+      - AGENTLEDGER_URL=http://host.docker.internal:58090
       - AGENTLEDGER_HOST=agentledger-devcontainer
     depends_on:
       postgres:

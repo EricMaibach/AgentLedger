@@ -4,7 +4,7 @@
 #
 # Variables (set them in Portainer's "Environment variables" for the stack):
 #   DB_PASSWORD        required; the ledger database's password
-#   AGENTLEDGER_PORT   optional; host port for the API (default 58080)
+#   AGENTLEDGER_PORT   optional; host port for the API (default 58090)
 #   AGENTLEDGER_IMAGE  optional; defaults to the latest release on GitHub's container registry
 #
 # Updating: after publishing a GitHub Release, use Portainer's "Pull and redeploy" (or
@@ -15,7 +15,7 @@ services:
   api:
     image: ${AGENTLEDGER_IMAGE:-ghcr.io/ericmaibach/agentledger-api:latest}
     ports:
-      - "${AGENTLEDGER_PORT:-58080}:8080"
+      - "${AGENTLEDGER_PORT:-58090}:8080"
     environment:
       ConnectionStrings__AgentLedger: Host=db;Database=agentledger;Username=agentledger;Password=${DB_PASSWORD:?Set DB_PASSWORD for the ledger database}
     depends_on:

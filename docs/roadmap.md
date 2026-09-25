@@ -55,13 +55,13 @@ agent hook ──stdin──► agentledger CLI ──HTTP──► API ──�
 
 **How it fits together:**
 1. Publishing a GitHub Release (`v0.2.0`) runs `.github/workflows/release.yml`. It runs the full CI, then builds the `Dockerfile` and pushes `ghcr.io/ericmaibach/agentledger-api:<version>` and `:latest`.
-2. The stable ledger is a Docker Compose stack (run with Portainer): that image, its own Postgres and data volume, host port 58080. It updates when a new image is released, and migrations run on startup.
-3. The dev container's CLI sends every hook event to it (`AGENTLEDGER_URL=http://host.docker.internal:58080`). If the ledger is down or updating, events wait in the spool.
+2. The stable ledger is a Docker Compose stack (run with Portainer): that image, its own Postgres and data volume, host port 58090. It updates when a new image is released, and migrations run on startup.
+3. The dev container's CLI sends every hook event to it (`AGENTLEDGER_URL=http://host.docker.internal:58090`). If the ledger is down or updating, events wait in the spool.
 
 **Steps:**
 1. ✅ API `Dockerfile` (multi-stage, non-root, migrations on startup); `/status` reports `<version>+<commit>`.
 2. ✅ Release workflow: CI, then image to GHCR, tagged with the version and `latest` (pre-releases don't move `latest`).
-3. ✅ `deploy/compose.yml` for the Portainer stack: API, Postgres 18, volume, port 58080, restart policy, health checks. Updates are manual for now (Portainer "Pull and redeploy" after a release).
+3. ✅ `deploy/compose.yml` for the Portainer stack: API, Postgres 18, volume, port 58090, restart policy, health checks. Updates are manual for now (Portainer "Pull and redeploy" after a release).
 4. ✅ Dev container wiring (`.devcontainer/install-agentledger.sh` on creation):
    - `AGENTLEDGER_URL`, plus `extra_hosts` for `host.docker.internal` (not built in on Linux);
    - `postCreateCommand` publishes the CLI to `~/.local/bin` and runs `agentledger install claude-code`.

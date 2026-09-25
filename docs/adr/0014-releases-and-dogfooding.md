@@ -18,12 +18,12 @@ AgentLedger should record its own development: every agent session working on th
 - The GHCR package is public, so it can be pulled without credentials.
 
 **The stable ledger:**
-- `deploy/compose.yml` runs the released image with **its own** Postgres 18 and data volume, on host port 58080, with restart policies and health checks. It's deployed as a Portainer stack on the development machine, independent of the dev container.
+- `deploy/compose.yml` runs the released image with **its own** Postgres 18 and data volume, on host port 58090, with restart policies and health checks. It's deployed as a Portainer stack on the development machine, independent of the dev container.
 - **Updates are manual:** after a release, Portainer's "Pull and redeploy". Automatic image updates (e.g. the maintained Watchtower fork `nicholas-fedor/watchtower`; the original `containrrr/watchtower` is archived) were deliberately left out for simplicity.
 - The database password comes from a stack variable (`DB_PASSWORD`), never from the committed file.
 
 **Dogfooding in the dev container:**
-- The dev container's environment sets `AGENTLEDGER_URL=http://host.docker.internal:58080` (with an `extra_hosts` mapping, since Docker Engine on Linux doesn't provide that name) and `AGENTLEDGER_HOST=agentledger-devcontainer`.
+- The dev container's environment sets `AGENTLEDGER_URL=http://host.docker.internal:58090` (with an `extra_hosts` mapping, since Docker Engine on Linux doesn't provide that name) and `AGENTLEDGER_HOST=agentledger-devcontainer`.
 - On creation, `.devcontainer/install-agentledger.sh` builds the CLI from the checkout (Native AOT), installs it into `~/.local/bin`, and runs `agentledger install claude-code` (user scope, [ADR 0013](0013-hook-installation-and-opt-out.md)). Rerun the script after changing the CLI.
 
 ## Consequences
