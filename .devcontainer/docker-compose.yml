@@ -6,6 +6,10 @@ services:
       context: .
       dockerfile: Dockerfile
     command: sleep infinity
+    # Lets the container reach services published on this machine, like the stable ledger on port 58080.
+    # (Docker Desktop provides host.docker.internal; Docker Engine on Linux needs this mapping.)
+    extra_hosts:
+      - host.docker.internal:host-gateway
     volumes:
       - ..:/workspace:cached
       - claude-config:/home/vscode/.claude
@@ -18,6 +22,9 @@ services:
       - PGDATABASE=agentledger
       - PGUSER=agentledger
       - PGPASSWORD=agentledger
+      # Dogfooding (docs/adr/0014): hook events go to the stable ledger (deploy/compose.yml), not the dev API
+      - AGENTLEDGER_URL=http://host.docker.internal:58080
+      - AGENTLEDGER_HOST=agentledger-devcontainer
     depends_on:
       postgres:
         condition: service_healthy

@@ -4,6 +4,8 @@
   "service": "devcontainer",
   "workspaceFolder": "/workspace",
   "remoteUser": "vscode",
+  // Dogfooding: build the agentledger CLI and install its Claude Code hooks (docs/adr/0014)
+  "postCreateCommand": ".devcontainer/install-agentledger.sh",
   "features": {
     "ghcr.io/devcontainers/features/github-cli:1": {},
     // Lets tests (Testcontainers) start throwaway containers via the host's Docker

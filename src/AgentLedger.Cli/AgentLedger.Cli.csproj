@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>agentledger</AssemblyName>
+    <RootNamespace>AgentLedger.Cli</RootNamespace>
+    <!-- Native AOT (ADR 0012). IsAotCompatible turns on the trim/AOT analyzers for normal builds, so
+         AOT-incompatible code fails the build (warnings are errors) long before anyone publishes. -->
+    <PublishAot>true</PublishAot>
+    <IsAotCompatible>true</IsAotCompatible>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.CommandLine" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="AgentLedger.Cli.Tests" />
+    <!-- NSubstitute builds its fakes in this dynamic assembly; it needs to see internal interfaces too. -->
+    <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
+  </ItemGroup>
+
+</Project>

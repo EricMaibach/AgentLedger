@@ -41,39 +41,32 @@ agent hook ──stdin──► agentledger CLI ──HTTP──► API ──�
 - [x] Raw table holds receipts: `AgentEventReceipt` with `ReceiptId` + `EventId`, duplicates landed ([ADR 0010](adr/0010-raw-landing-accepts-duplicates.md))
 - [x] `IngestEvent` use case: command + handler, registered with Mediator
 - [x] `POST /events` endpoint ([ADR 0011](adr/0011-ingest-envelope-contract.md) envelope contract)
-- [ ] **`agentledger` CLI: `hook <agent>` with envelope, timeout, spool, always exit 0** ← next task
-- [ ] Claude Code hooks registered through the CLI; a real session captured end to end
+- [x] CLI design ([ADR 0012](adr/0012-cli-design.md))
+- [x] `agentledger` CLI: `hook`, `status`, `flush`, `install`/`uninstall`, Native AOT ([ADR 0012](adr/0012-cli-design.md), [ADR 0013](adr/0013-hook-installation-and-opt-out.md))
+- [ ] **Dogfooding: released image as a stable ledger; this project's sessions recorded through the CLI** ← next task
 
 **Phase 1 is done when:**
 - every hook event from a real Claude Code session is stored in Postgres, with its payload intact;
 - a resend produces an extra receipt, and each agent event is still identifiable once by `event_id` (deduplication itself comes with projections).
 
-## Next task: the `agentledger` CLI
+## Next task: dogfood AgentLedger on its own development
 
-**Goal:** hooks call `agentledger hook <agent>`. The CLI reads the payload from stdin, wraps it in the envelope ([ADR 0011](adr/0011-ingest-envelope-contract.md)) and POSTs it, and it never disrupts the agent ([ADR 0002](adr/0002-hook-ingestion-via-cli.md)).
+**Goal:** Phase 1's finish line. Every Claude Code hook event from developing AgentLedger lands in a **stable ledger**: released images running on this machine, separate from the dev API and dev database, which are scratch.
 
-This adds a new project, so the design is discussed first. Topics:
-- project layout (`src/AgentLedger.Cli` plus a test project) and Native AOT constraints;
-- `System.CommandLine`;
-- spool location and format, and when resends happen;
-- config file format and locations;
-- how git context is collected.
+**How it fits together:**
+1. Publishing a GitHub Release (`v0.2.0`) runs `.github/workflows/release.yml`. It runs the full CI, then builds the `Dockerfile` and pushes `ghcr.io/ericmaibach/agentledger-api:<version>` and `:latest`.
+2. The stable ledger is a Docker Compose stack (run with Portainer): that image, its own Postgres and data volume, host port 58080. It updates when a new image is released, and migrations run on startup.
+3. The dev container's CLI sends every hook event to it (`AGENTLEDGER_URL=http://host.docker.internal:58080`). If the ledger is down or updating, events wait in the spool.
 
-**Requirements already decided:**
-- **Always exits 0,** whatever happens, with a short HTTP timeout.
-- **Building the envelope:**
-  - a new UUIDv7 `eventId` per invocation;
-  - `capturedAt` is the current time;
-  - host, user and project dir (`CLAUDE_PROJECT_DIR` for Claude Code);
-  - git repo, branch and worktree;
-  - `AGENTLEDGER_TAG_*` → `tags`, with keys lowercased (`AGENTLEDGER_TAG_Story` becomes `story`), because environment variable names are case-sensitive on Linux but not on Windows;
-  - stdin embedded as the raw-JSON `payload`.
-- **Retry behavior:** on 500 or a network failure, write the envelope to the spool and resend it on a later run. On 400, log the error and drop the event: it's malformed, and resending won't help.
-- **Config resolution:** `AGENTLEDGER_URL`, then project config, then user config, then the localhost default.
-- No reference to Core.
-
-**Afterwards (rest of Phase 1):**
-- **End to end:** register the CLI in `.claude/settings.json` for every Claude Code hook event, run a real session, and verify every event against the probe captures.
+**Steps:**
+1. ✅ API `Dockerfile` (multi-stage, non-root, migrations on startup); `/status` reports `<version>+<commit>`.
+2. ✅ Release workflow: CI, then image to GHCR, tagged with the version and `latest` (pre-releases don't move `latest`).
+3. ✅ `deploy/compose.yml` for the Portainer stack: API, Postgres 18, volume, port 58080, restart policy, health checks. Updates are manual for now (Portainer "Pull and redeploy" after a release).
+4. ✅ Dev container wiring (`.devcontainer/install-agentledger.sh` on creation):
+   - `AGENTLEDGER_URL`, plus `extra_hosts` for `host.docker.internal` (not built in on Linux);
+   - `postCreateCommand` publishes the CLI to `~/.local/bin` and runs `agentledger install claude-code`.
+5. Create release `v0.1.0` on GitHub, make the GHCR package public (a one-time setting), and deploy the stack in Portainer.
+6. ✅ ADR 0014. Then verify real sessions arrive (every event type from the probe captures, payloads byte-for-byte, the `flush` path while the ledger is down).
 
 **Deferred from the EF mapping task:**
 - An index on `context_git_repo` / `context_git_branch`. EF 10 can't declare an index on complex-type columns. Add it with `migrationBuilder.Sql` when a projection or query actually filters by repo or branch.
@@ -111,6 +104,11 @@ This adds a new project, so the design is discussed first. Topics:
 
 - Should AgentLedger log its own development (dogfooding)? If so, run a separate "stable" API instance for that, so a broken dev build doesn't lose data.
 - OpenTelemetry (OTLP) as a second ingestion channel for cost and token metrics. Claude Code, Codex and Copilot all export it.
+
+## Planned enhancements
+
+- **Commit hash in the capture context** (`gitCommit`): read from the `.git` files alongside the branch, it ties agent activity to the exact code state. It's an additive change: an optional envelope field, a `CaptureContext` value and a column (see [ADR 0012](adr/0012-cli-design.md), "Future enhancement").
+- **Unknown-agent error message:** the error currently echoes the converted name ("Unknown agent: Cursor") instead of what the caller sent ("cursor"). Cosmetic.
 
 ## Ideas (not planned)
 

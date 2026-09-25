@@ -1,0 +1,13 @@
+# Keep the build context small and free of local state; the Dockerfile copies only what it needs.
+**/bin/
+**/obj/
+.git/
+.github/
+.probe/
+.claude/
+.devcontainer/
+.vscode/
+artifacts/
+docs/
+tests/
+tools/

@@ -3,9 +3,9 @@ FROM mcr.microsoft.com/devcontainers/dotnet:10.0
 
 ARG DEBIAN_FRONTEND=noninteractive
 
-# psql for poking at the dev database
+# psql for poking at the dev database; clang + zlib1g-dev for Native AOT publishing (the agentledger CLI)
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends postgresql-client \
+    && apt-get install -y --no-install-recommends postgresql-client clang zlib1g-dev \
     && rm -rf /var/lib/apt/lists/*
 
 USER vscode

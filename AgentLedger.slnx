@@ -10,6 +10,7 @@
     <File Path="Directory.Packages.props" />
   </Folder>
   <Folder Name="/src/">
+    <Project Path="src/AgentLedger.Cli/AgentLedger.Cli.csproj" />
     <Project Path="src/AgentLedger.Core/AgentLedger.Core.csproj" />
     <Project Path="src/AgentLedger.Infrastructure/AgentLedger.Infrastructure.csproj" />
     <Project Path="src/AgentLedger.UseCases/AgentLedger.UseCases.csproj" />
@@ -17,6 +18,7 @@
     <Project Path="src/AgentLedger.Web/AgentLedger.Web.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/AgentLedger.Cli.Tests/AgentLedger.Cli.Tests.csproj" />
     <Project Path="tests/AgentLedger.FunctionalTests/AgentLedger.FunctionalTests.csproj">
       <BuildDependency Project="src/AgentLedger.Web/AgentLedger.Web.csproj" />
     </Project>

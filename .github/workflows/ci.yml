@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_call: # the release workflow runs these same checks before publishing
 
 permissions:
   contents: read
@@ -31,3 +32,29 @@ jobs:
       # using the Docker daemon that GitHub-hosted Ubuntu runners provide.
       - name: Test
         run: dotnet test --configuration Release --no-build --logger "console;verbosity=normal"
+
+  # Publishes the agentledger CLI as a Native AOT binary (ADR 0012) and smoke-tests it, so code that
+  # breaks AOT can't be merged even if it passes the normal (JIT) build and tests.
+  cli-native:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Install the native toolchain
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends clang zlib1g-dev
+
+      - name: Publish Native AOT
+        run: dotnet publish src/AgentLedger.Cli --configuration Release --runtime linux-x64 --output artifacts/cli
+
+      - name: Smoke-test the binary
+        run: |
+          ./artifacts/cli/agentledger --version
+          # With the API unreachable, `hook` must still print nothing and exit 0 (ADR 0012).
+          output=$(echo '{"session_id":"ci","hook_event_name":"Stop"}' \
+            | AGENTLEDGER_URL=http://127.0.0.1:9 AGENTLEDGER_SPOOL_DIR="$RUNNER_TEMP/spool" ./artifacts/cli/agentledger hook claude-code 2>&1)
+          test -z "$output" || { echo "hook produced output: $output"; exit 1; }
+          test "$(ls "$RUNNER_TEMP/spool" | wc -l)" -eq 1 || { echo "event was not spooled"; exit 1; }

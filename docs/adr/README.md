@@ -15,5 +15,8 @@ Each file records one significant decision: the context, what was decided, and t
 | [0009](0009-ledger-storage-details.md) | Ledger storage: exact `json` payloads, snake_case names, `created_at`/`updated_at` watermarks | Accepted |
 | [0010](0010-raw-landing-accepts-duplicates.md) | Raw landing accepts duplicates (receipts); deduplicate downstream by `AgentEventId` | Accepted |
 | [0011](0011-ingest-envelope-contract.md) | `POST /events` envelope: kebab-case agents, raw JSON payload, 201/400/500 semantics | Accepted |
+| [0012](0012-cli-design.md) | `agentledger` CLI: Native AOT, commands, write-first spool, configuration, envelope sources | Accepted |
+| [0013](0013-hook-installation-and-opt-out.md) | `install --scope user|local|project` (default user), binary by name, per-project opt-out | Accepted |
+| [0014](0014-releases-and-dogfooding.md) | Releases publish API images to GHCR; a stable ledger (Portainer stack) records this project's own development | Accepted |
 
 New ADRs: copy the structure of an existing one (Status, Context, Decision, Consequences) and use the next number.

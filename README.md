@@ -53,6 +53,23 @@ Requirements: Docker and VS Code with the Dev Containers extension.
    ```
    In Development, migrations are applied on startup, and API docs are at `http://localhost:57678/scalar`.
 
+## Recording agent activity: the `agentledger` CLI
+
+Agents run a small CLI from their hooks. It's published as a single Native AOT binary with no .NET runtime needed, and a hook run takes a few milliseconds.
+
+```bash
+dotnet publish src/AgentLedger.Cli -c Release -r linux-x64 -o ~/.local/bin   # a folder on your PATH
+agentledger install claude-code          # hooks for every Claude Code event, in all your projects
+agentledger status                       # configuration, API reachability, waiting events, recent log
+```
+
+- **`hook <agent>`** is what the installed hooks call. It's silent and always exits 0, so it never disrupts the agent. If the API is unavailable, events wait in a local spool and are sent later, or right away with `agentledger flush`.
+- **Pointing at another API:** set `AGENTLEDGER_URL`, or add `{ "url": "..." }` to `.agentledger.json` in a project.
+- **Opting a project out:** add `{ "enabled": false }` to that project's `.agentledger.json`.
+- **Removing it:** run `agentledger uninstall claude-code` before deleting the binary.
+
+Details: [ADR 0012](docs/adr/0012-cli-design.md), [ADR 0013](docs/adr/0013-hook-installation-and-opt-out.md).
+
 ## Contributing
 
 Read [`docs/architecture.md`](docs/architecture.md) first. Before finishing a change, all of these must pass:
