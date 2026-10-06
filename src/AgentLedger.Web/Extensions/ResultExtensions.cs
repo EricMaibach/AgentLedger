@@ -29,14 +29,7 @@ public static class ResultExtensions
     return result.Status switch
     {
       ResultStatus.Ok or ResultStatus.Created => TypedResults.Created(locationBuilder(result.Value), mapResponse(result.Value)),
-      ResultStatus.Invalid => TypedResults.ValidationProblem(
-        result.ValidationErrors
-          .GroupBy(e => e.Identifier ?? string.Empty)
-          .ToDictionary(
-            g => g.Key,
-            g => g.Select(e => e.ErrorMessage).ToArray()
-          )
-      ),
+      ResultStatus.Invalid => ToValidationProblem(result),
       _ => TypedResults.Problem(
         title: "Create failed",
         detail: string.Join("; ", result.Errors),
@@ -45,9 +38,9 @@ public static class ResultExtensions
   }
 
   /// <summary>
-  /// Maps Result to TypedResults for GetById endpoints that return Ok, NotFound, or ProblemHttpResult
+  /// Maps Result to TypedResults for GetById endpoints: Ok, NotFound, ValidationProblem (Invalid, errors keyed by field), or ProblemHttpResult
   /// </summary>
-  public static Results<Ok<TResponse>, NotFound, ProblemHttpResult> ToGetByIdResult<TValue, TResponse>(
+  public static Results<Ok<TResponse>, NotFound, ValidationProblem, ProblemHttpResult> ToGetByIdResult<TValue, TResponse>(
     this Result<TValue> result,
     Func<TValue, TResponse> mapResponse)
   {
@@ -55,9 +48,9 @@ public static class ResultExtensions
   }
 
   /// <summary>
-  /// Maps Result to TypedResults for Update endpoints that return Ok, NotFound, or ProblemHttpResult
+  /// Maps Result to TypedResults for Update endpoints: Ok, NotFound, ValidationProblem, or ProblemHttpResult
   /// </summary>
-  public static Results<Ok<TResponse>, NotFound, ProblemHttpResult> ToUpdateResult<TValue, TResponse>(
+  public static Results<Ok<TResponse>, NotFound, ValidationProblem, ProblemHttpResult> ToUpdateResult<TValue, TResponse>(
     this Result<TValue> result,
     Func<TValue, TResponse> mapResponse)
   {
@@ -84,7 +77,7 @@ public static class ResultExtensions
   /// <summary>
   /// Private helper method for Ok/NotFound result patterns
   /// </summary>
-  private static Results<Ok<TResponse>, NotFound, ProblemHttpResult> ToOkOrNotFoundResult<TValue, TResponse>(
+  private static Results<Ok<TResponse>, NotFound, ValidationProblem, ProblemHttpResult> ToOkOrNotFoundResult<TValue, TResponse>(
     Result<TValue> result,
     Func<TValue, TResponse> mapResponse,
     string operationName)
@@ -93,12 +86,20 @@ public static class ResultExtensions
     {
       ResultStatus.Ok => TypedResults.Ok(mapResponse(result.Value)),
       ResultStatus.NotFound => TypedResults.NotFound(),
+      ResultStatus.Invalid => ToValidationProblem(result),
       _ => TypedResults.Problem(
         title: $"{operationName} failed",
         detail: string.Join("; ", result.Errors),
         statusCode: StatusCodes.Status400BadRequest)
     };
   }
+
+  // A 400 with the validation errors keyed by field (identifier), e.g. {"errors":{"eventId":["..."]}}.
+  private static ValidationProblem ToValidationProblem(Ardalis.Result.IResult result) =>
+    TypedResults.ValidationProblem(
+      result.ValidationErrors
+        .GroupBy(e => e.Identifier ?? string.Empty)
+        .ToDictionary(g => g.Key, g => g.Select(e => e.ErrorMessage).ToArray()));
 
   /// <summary>
   /// Maps Result to TypedResults for endpoints that return Ok only (like List endpoints)

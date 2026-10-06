@@ -18,6 +18,10 @@ internal static partial class AgentWireName
     return true;
   }
 
+  /// <summary>The wire name for an AgentKind name: ClaudeCode → claude-code.</summary>
+  public static string FromAgentKindName(string agentKindName) =>
+    string.Concat(agentKindName.Select((c, i) => char.IsUpper(c) && i > 0 ? $"-{char.ToLowerInvariant(c)}" : char.ToLowerInvariant(c).ToString()));
+
   [GeneratedRegex("^[a-z0-9]+(-[a-z0-9]+)*$")]
   private static partial Regex KebabCase();
 }

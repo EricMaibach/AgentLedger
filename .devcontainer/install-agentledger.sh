@@ -8,6 +8,9 @@ repo="$(cd "$(dirname "$0")/.." && pwd)"
 out="$(mktemp -d)"
 trap 'rm -rf "$out"' EXIT
 
+# Local .NET tools from dotnet-tools.json (e.g. dotnet-ef for migrations).
+dotnet tool restore --tool-manifest "$repo/dotnet-tools.json"
+
 echo "Building the agentledger CLI (Native AOT)..."
 dotnet publish "$repo/src/AgentLedger.Cli" --configuration Release --runtime linux-x64 --output "$out" --nologo --verbosity quiet
 mkdir -p "$HOME/.local/bin"

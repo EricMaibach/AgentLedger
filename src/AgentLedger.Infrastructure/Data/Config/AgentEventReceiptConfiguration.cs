@@ -52,6 +52,9 @@ public sealed class AgentEventReceiptConfiguration : IEntityTypeConfiguration<Ag
     builder.HasIndex(e => e.EventId); // deduplication key for projections; deliberately not unique
     builder.HasIndex(e => new { e.Agent, e.NativeSessionId });
     builder.HasIndex(e => e.CapturedAt);
+    // Keyset paging for the raw event list: ORDER BY received_at DESC, id DESC (ADR 0016).
+    // Postgres reads an ascending index backwards for descending order, so ascending is fine.
+    builder.HasIndex(e => new { e.ReceivedAt, e.Id });
     // Incremental-processing watermark. Declared here too so the index can reference it;
     // AppDbContext adds the audit timestamps to every entity after configurations run.
     builder.Property<DateTimeOffset>(AppDbContext.UpdatedAt);

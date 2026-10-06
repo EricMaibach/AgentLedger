@@ -5,6 +5,7 @@ An auditable ledger of what AI coding agents do. It's a .NET 10 solution using C
 ## Read first
 - **`docs/architecture.md`**: how code is written here (layers, patterns, testing, conventions). Follow it. If a task seems to need something that contradicts it, raise it rather than working around it.
 - **`docs/roadmap.md`**: what's done and the **next task**. Update its status when work lands.
+- `docs/ui.md`: the web UI design system. The `web-ui` skill loads it for UI work.
 - `docs/adr/`: why things are the way they are. Add an ADR for any significant new decision.
 - `docs/research/agent-hook-capabilities.md`: what each agent's hooks provide.
 

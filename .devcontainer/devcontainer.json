@@ -21,8 +21,14 @@
       "extensions": [
         "ms-dotnettools.csdevkit",
         "anthropic.claude-code",
-        "ms-ossdata.vscode-pgsql"
-      ]
+        "ms-ossdata.vscode-pgsql",
+        // VS Code doesn't read .editorconfig on its own; without this, typing indents C# with 4 spaces instead of 2
+        "EditorConfig.EditorConfig"
+      ],
+      "settings": {
+        // Applies .editorconfig (via the C# extension) on every save, so dotnet format --verify-no-changes stays green
+        "[csharp]": { "editor.formatOnSave": true }
+      }
     }
   }
 }

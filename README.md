@@ -6,7 +6,7 @@ An auditable ledger of what AI coding agents do.
 
 AgentLedger hooks into coding agents (Claude Code, Codex, GitHub Copilot, Snowflake Cortex Code) and records everything they expose: prompts, tool calls, responses, reasoning and token usage. Everything goes into a single PostgreSQL store, so that people and other AI can review, measure and correlate agent activity across tools.
 
-> **Status:** early development. Phase 1 (capturing raw hook events from Claude Code) is in progress. See the [roadmap](docs/roadmap.md).
+> **Status:** early development. Capturing raw hook events from Claude Code works, and AgentLedger records its own development. Next: a web UI and authentication (Phase 2). See the [roadmap](docs/roadmap.md).
 
 ## How it works
 
