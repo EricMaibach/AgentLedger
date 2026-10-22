@@ -32,6 +32,7 @@ In v1 only "Raw events" exists. The home page `/` redirects to it until projecti
 - Lowercase, kebab-case paths; sections are top-level segments (`/raw/…`).
 - **Permanent:** a page's URL never changes meaning once released. `/raw/events/{eventId}` in particular is the evidence link projections will use.
 - Identifiers appear in full in URLs (never shortened).
+- Pages own the plain paths; the JSON read API with the same data lives under `/api` (`/api/raw/events`, [ADR 0017](adr/0017-api-prefix-for-read-endpoints.md)).
 - Filters, toggles and the paging cursor are query-string parameters, using the read API's names ([ADR 0016](adr/0016-read-api-and-keyset-paging.md)): `?agent=claude-code&eventType=Stop&session=…&distinct=false&after=…`. Parameters at their default value are left out.
 
 ## Building blocks
@@ -48,9 +49,10 @@ Use these shared components (in `Components/Shared/`) instead of re-creating the
 | **AgentName** | showing an agent | Display names: `claude-code` → Claude Code, `codex` → Codex, `copilot-cli` → Copilot CLI, `vs-code-copilot` → VS Code Copilot, `cortex-code` → Cortex Code. Filters and URLs use the kebab-case wire names. |
 | **EventTypeBadge** | an event's type | The agent's native name (`PreToolUse`) in a small, **neutral** badge. No per-type colors in the raw section: categorizing event types is agent-specific interpretation (ADR 0003, ADR 0015). |
 | **JsonViewer** | payloads | Two views: **Formatted** (indented, the default) and **Exact** (the stored text, byte for byte), switched by a query parameter (`?view=exact`). Formatting keeps key order and duplicate keys. Monospace, wraps long lines, with a copy button that copies the exact text. |
+| **CopyButton** | copying a value (used by ShortId and JsonViewer) | A `<button>` with an accessible label (`Copy event ID`) and `data-copy`; `app.js` does the copying. Hidden unless `app.js` runs (`html.js`), so there is never a button that can't work. |
 | **EmptyState** | a list with no results | Says what was searched for ("No events match these filters") and offers the way out ("Clear filters"). |
 
-**Errors:** an unexpected failure shows the standard error page with a short reference, never a stack trace. Not found (e.g. an unknown event ID) is a proper 404 page that links back to the list.
+**Errors:** an unexpected failure shows the standard error page with a short reference, never a stack trace. Not found (e.g. an unknown event ID) is a proper 404 page that links back to the list: a page calls `NavigationManager.NotFound()`, which renders `Pages/NotFound.razor` (the Router's `NotFoundPage`) with status 404. Don't set `Response.StatusCode` yourself: the renderer then sends an empty body. Unusable filters (an unknown agent, a bad date or cursor) are not errors: the list page explains them in an alert and stays 200.
 
 **Loading:** pages render on the server, so there are no spinners. If a query is slow enough to notice, use Blazor's streaming rendering with a short "Loading…" placeholder, rather than making the page interactive.
 

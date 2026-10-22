@@ -1,0 +1,4 @@
+.short-id {
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}

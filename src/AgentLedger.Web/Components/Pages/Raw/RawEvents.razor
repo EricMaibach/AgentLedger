@@ -1,0 +1,194 @@
+@page "/raw/events"
+@inject IMediator Mediator
+
+@* The raw event list (ADR 0015/0016, docs/ui.md): filters and paging live in the URL; data comes from the
+   same queries as the JSON API. Raw data only: no agent-specific interpretation. *@
+
+<PageTitle>Raw events · AgentLedger</PageTitle>
+
+<h1>Raw events</h1>
+
+<FilterBar Action="@RawEventsLink.Path" ClearHref="@RawEventsLink.Path" ActiveCount="ActiveFilterCount">
+  <label>
+    Agent
+    <select name="agent">
+      <option value="">Any</option>
+      @foreach (var (wireName, displayName) in AgentDisplayName.All)
+      {
+        <option value="@wireName" selected="@(wireName == Agent)">@displayName</option>
+      }
+    </select>
+  </label>
+  <label>Event type <input name="eventType" value="@EventType" placeholder="e.g. PreToolUse" /></label>
+  <label>Session <input name="session" value="@Session" /></label>
+  <label>Host <input name="host" value="@Host" /></label>
+  <label>Repository <input name="repo" value="@Repo" placeholder="github.com/owner/repo" /></label>
+  <label>Received from (UTC) <input type="datetime-local" name="from" value="@FromInput" /></label>
+  <label>Received before (UTC) <input type="datetime-local" name="to" value="@ToInput" /></label>
+  <label>
+    Show
+    <select name="distinct">
+      <option value="true">One row per event</option>
+      <option value="false" selected="@(!ShowDistinct)">Every receipt (incl. resends)</option>
+    </select>
+  </label>
+  @if (Limit is { Length: > 0 })
+  {
+    <input type="hidden" name="limit" value="@Limit" />
+  }
+</FilterBar>
+
+@if (Errors.Count > 0)
+{
+  <div class="alert" role="alert">
+    <p>These filters can't be used:</p>
+    <ul>
+      @foreach (var error in Errors)
+      {
+        <li>@error</li>
+      }
+    </ul>
+  </div>
+}
+else if (Page is not null)
+{
+  @if (Counts is { Count: > 0 })
+  {
+    <section class="type-counts" aria-labelledby="type-counts-heading">
+      <h2 id="type-counts-heading">Event types in this session</h2>
+      <ul>
+        @foreach (var count in Counts)
+        {
+          <li>
+            <a href="@RawEventsLink.To(Query with { EventType = count.EventType, After = null })"><EventTypeBadge Value="@count.EventType" /></a>
+            <span class="count">@count.Count</span>
+          </li>
+        }
+      </ul>
+    </section>
+  }
+
+  @if (Page.Items.Count == 0)
+  {
+    <EmptyState Message="No events match these filters.">
+      <a href="@RawEventsLink.Path">Clear filters</a>
+    </EmptyState>
+  }
+  else
+  {
+    <DataTable Caption="Raw events, newest first">
+      <Header>
+        <th scope="col">Received (UTC)</th>
+        <th scope="col">Agent</th>
+        <th scope="col">Event type</th>
+        <th scope="col">Session</th>
+        <th scope="col">Host · user</th>
+        <th scope="col">Repository · branch</th>
+        <th scope="col">Preview</th>
+      </Header>
+      <ChildContent>
+        @foreach (var item in Page.Items)
+        {
+          <tr>
+            <td><a href="@RawEventsLink.ToEvent(item.EventId)"><Timestamp Value="item.ReceivedAt" /></a></td>
+            <td><AgentName WireName="@AgentWireName.FromAgentKindName(item.Agent)" /></td>
+            <td><EventTypeBadge Value="@item.EventType" ReceiptCount="item.ReceiptCount" /></td>
+            <td>
+              @if (item.NativeSessionId is { } session)
+              {
+                <ShortId Value="@session" Href="@RawEventsLink.To(Query with { Session = session, After = null })" Label="session ID" />
+              }
+            </td>
+            <td>@item.Host · @item.User</td>
+            <td>@item.GitRepo · @item.GitBranch</td>
+            <td><code class="preview">@item.Preview</code></td>
+          </tr>
+        }
+      </ChildContent>
+    </DataTable>
+
+    <Pager NewerHref="@(After is { Length: > 0 } ? RawEventsLink.To(Query with { After = null }) : null)"
+           OlderHref="@(Page.Next is { } next ? RawEventsLink.To(Query with { After = RawEventCursorCodec.Encode(next) }) : null)" />
+  }
+}
+
+@code {
+  [SupplyParameterFromQuery] public string? Agent { get; set; }
+  [SupplyParameterFromQuery(Name = "eventType")] public string? EventType { get; set; }
+  [SupplyParameterFromQuery] public string? Session { get; set; }
+  [SupplyParameterFromQuery] public string? Host { get; set; }
+  [SupplyParameterFromQuery] public string? Repo { get; set; }
+  [SupplyParameterFromQuery] public string? From { get; set; }
+  [SupplyParameterFromQuery] public string? To { get; set; }
+  [SupplyParameterFromQuery] public string? Distinct { get; set; }
+  [SupplyParameterFromQuery] public string? Limit { get; set; }
+  [SupplyParameterFromQuery] public string? After { get; set; }
+
+  private RawEventPage? Page { get; set; }
+  private IReadOnlyList<EventTypeCount>? Counts { get; set; }
+  private List<string> Errors { get; } = [];
+
+  private bool ShowDistinct => !string.Equals(Distinct, "false", StringComparison.OrdinalIgnoreCase);
+
+  // The current view's parameters, for building links that keep the filters.
+  private RawEventsQueryString Query => new(
+    Blank(Agent), Blank(EventType), Blank(Session), Blank(Host), Blank(Repo), Blank(From), Blank(To),
+    ShowDistinct, int.TryParse(Limit, out var limit) ? limit : Constants.DEFAULT_PAGE_SIZE, Blank(After));
+
+  private string? FromInput => DateTimeInput.TryParse(From, out var from) && from is { } value ? DateTimeInput.Format(value) : From;
+  private string? ToInput => DateTimeInput.TryParse(To, out var to) && to is { } value ? DateTimeInput.Format(value) : To;
+
+  private int ActiveFilterCount =>
+    new[] { Agent, EventType, Session, Host, Repo, From, To }.Count(value => !string.IsNullOrWhiteSpace(value))
+    + (ShowDistinct ? 0 : 1);
+
+  protected override async Task OnInitializedAsync()
+  {
+    if (!DateTimeInput.TryParse(From, out var from))
+    {
+      Errors.Add($"Received from: '{From}' is not a date and time.");
+    }
+
+    if (!DateTimeInput.TryParse(To, out var to))
+    {
+      Errors.Add($"Received before: '{To}' is not a date and time.");
+    }
+
+    var limit = Constants.DEFAULT_PAGE_SIZE;
+    if (Blank(Limit) is { } limitText && !int.TryParse(limitText, out limit))
+    {
+      Errors.Add($"Limit: '{Limit}' is not a number.");
+    }
+
+    RawEventCursor? after = null;
+    if (Blank(After) is { } cursor && !RawEventCursorCodec.TryDecode(cursor, out after))
+    {
+      Errors.Add("This page link isn't valid any more. Start again from the newest events.");
+    }
+
+    var filter = RawEventFilterParameters.ToFilter(Blank(Agent), Blank(EventType), Blank(Session), Blank(Host), Blank(Repo), from, to);
+    Errors.AddRange(filter.ValidationErrors.Select(error => error.ErrorMessage));
+    if (Errors.Count > 0)
+    {
+      return;
+    }
+
+    var result = await Mediator.Send(new ListRawEventsQuery(filter.Value, ShowDistinct, after, limit));
+    if (!result.IsSuccess)
+    {
+      Errors.AddRange(result.ValidationErrors.Select(error => error.ErrorMessage));
+      return;
+    }
+
+    Page = result.Value;
+
+    if (Blank(Session) is not null)
+    {
+      var counts = await Mediator.Send(new CountRawEventTypesQuery(filter.Value));
+      Counts = counts.IsSuccess ? counts.Value : null;
+    }
+  }
+
+  // An empty form field arrives as "": treat it as "not set".
+  private static string? Blank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+}

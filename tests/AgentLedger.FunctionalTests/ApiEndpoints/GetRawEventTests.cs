@@ -25,7 +25,7 @@ public sealed class GetRawEventTests(CustomWebApplicationFactory<Program> factor
     await SendAsync(envelope);
     await SendAsync(envelope); // a resend: a second receipt of the same event
 
-    var response = await _client.GetAsync($"/raw/events/{eventId}");
+    var response = await _client.GetAsync($"/api/raw/events/{eventId}");
 
     response.StatusCode.ShouldBe(HttpStatusCode.OK);
     using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
@@ -45,7 +45,15 @@ public sealed class GetRawEventTests(CustomWebApplicationFactory<Program> factor
   [Fact]
   public async Task ReturnsNotFoundForAnUnknownEvent()
   {
-    var response = await _client.GetAsync($"/raw/events/{Guid.CreateVersion7()}");
+    var response = await _client.GetAsync($"/api/raw/events/{Guid.CreateVersion7()}");
+
+    response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+  }
+
+  [Fact]
+  public async Task ReturnsNotFoundForAnIdThatIsNotAGuid()
+  {
+    var response = await _client.GetAsync("/api/raw/events/not-a-guid");
 
     response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
   }
@@ -53,7 +61,7 @@ public sealed class GetRawEventTests(CustomWebApplicationFactory<Program> factor
   [Fact]
   public async Task RejectsAnEmptyEventId()
   {
-    var response = await _client.GetAsync($"/raw/events/{Guid.Empty}");
+    var response = await _client.GetAsync($"/api/raw/events/{Guid.Empty}");
 
     response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());

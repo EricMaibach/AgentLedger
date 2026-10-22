@@ -20,7 +20,6 @@
     <PackageReference Include="ReportGenerator" />
     <PackageReference Include="xunit" />
     <PackageReference Include="Mediator.Abstractions" />
-    <PackageReference Include="Mediator.SourceGenerator" />
     <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
   </ItemGroup>
 
@@ -33,6 +32,8 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\AgentLedger.Core\AgentLedger.Core.csproj" />
     <ProjectReference Include="..\..\src\AgentLedger.UseCases\AgentLedger.UseCases.csproj" />
+    <!-- For the web UI's presentation logic (formatting, display names), kept in plain classes so it's unit-testable (docs/ui.md). -->
+    <ProjectReference Include="..\..\src\AgentLedger.Web\AgentLedger.Web.csproj" />
   </ItemGroup>
 
 </Project>

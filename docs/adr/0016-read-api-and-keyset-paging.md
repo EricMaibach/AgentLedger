@@ -1,6 +1,6 @@
 # 0016. Read API: keyset paging, query service for lists, specification for lookups
 
-- **Status:** Accepted
+- **Status:** Accepted (endpoint paths moved under `/api` by [ADR 0017](0017-api-prefix-for-read-endpoints.md); parameters and responses unchanged)
 - **Date:** 2026-10-01
 
 ## Context

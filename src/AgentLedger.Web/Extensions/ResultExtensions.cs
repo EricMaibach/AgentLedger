@@ -102,6 +102,24 @@ public static class ResultExtensions
         .ToDictionary(g => g.Key, g => g.Select(e => e.ErrorMessage).ToArray()));
 
   /// <summary>
+  /// Maps Result to TypedResults for query endpoints: Ok, ValidationProblem (Invalid, errors keyed by field), or ProblemHttpResult
+  /// </summary>
+  public static Results<Ok<TResponse>, ValidationProblem, ProblemHttpResult> ToOkResult<TValue, TResponse>(
+    this Result<TValue> result,
+    Func<TValue, TResponse> mapResponse)
+  {
+    return result.Status switch
+    {
+      ResultStatus.Ok => TypedResults.Ok(mapResponse(result.Value)),
+      ResultStatus.Invalid => ToValidationProblem(result),
+      _ => TypedResults.Problem(
+        title: "Query failed",
+        detail: string.Join("; ", result.Errors),
+        statusCode: StatusCodes.Status400BadRequest)
+    };
+  }
+
+  /// <summary>
   /// Maps Result to TypedResults for endpoints that return Ok only (like List endpoints)
   /// </summary>
   public static Ok<TResponse> ToOkOnlyResult<TValue, TResponse>(

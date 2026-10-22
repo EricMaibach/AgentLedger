@@ -1,0 +1,14 @@
+@* An identifier: first 8 characters, the full value on hover, an optional link, and a copy button
+   (shown only when app.js is running; docs/ui.md). *@
+<span class="short-id" title="@Value">@if (Href is not null)
+  {<a href="@Href">@DisplayFormat.ShortId(Value)</a>}
+  else
+  {@DisplayFormat.ShortId(Value)}<CopyButton Text="@Value" Label="@($"Copy {Label}")" /></span>
+
+@code {
+  [Parameter, EditorRequired] public string Value { get; set; } = string.Empty;
+  [Parameter] public string? Href { get; set; }
+
+  /// <summary>What the value is, for the copy button's accessible name (e.g. "event ID").</summary>
+  [Parameter] public string Label { get; set; } = "ID";
+}

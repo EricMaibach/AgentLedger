@@ -1,4 +1,4 @@
-using AgentLedger.Core.AgentEventReceiptAggregate;
+﻿using AgentLedger.Core.AgentEventReceiptAggregate;
 using AgentLedger.UseCases.AgentEventReceipts.ListRawEvents;
 
 namespace AgentLedger.IntegrationTests.Data;

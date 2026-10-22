@@ -1,0 +1,15 @@
+@inherits LayoutComponentBase
+
+@* The navigation shell (docs/ui.md, "Structure"). Projection sections (Sessions, Cost…) slot in above
+   "Raw events" in Phase 4. *@
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="app-header">
+  <a class="brand" href="@RawEventsLink.Path">AgentLedger</a>
+  <span class="version" title="Running build">@BuildInfo.Version</span>
+</header>
+<nav class="app-nav" aria-label="Sections">
+  <NavLink href="@RawEventsLink.Path" Match="NavLinkMatch.Prefix">Raw events</NavLink>
+</nav>
+<main id="main" class="app-main">
+  @Body
+</main>

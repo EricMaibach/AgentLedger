@@ -1,0 +1,7 @@
+@* A point in time: always UTC, labelled, with the full ISO value for machines (docs/ui.md). *@
+<time datetime="@DisplayFormat.IsoTimestamp(Value)">@DisplayFormat.Timestamp(Value, WithMilliseconds)</time>
+
+@code {
+  [Parameter, EditorRequired] public DateTimeOffset Value { get; set; }
+  [Parameter] public bool WithMilliseconds { get; set; }
+}

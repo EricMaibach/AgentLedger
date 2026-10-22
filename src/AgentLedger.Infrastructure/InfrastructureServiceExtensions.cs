@@ -1,4 +1,6 @@
 ﻿using AgentLedger.Infrastructure.Data;
+using AgentLedger.Infrastructure.Data.Queries;
+using AgentLedger.UseCases.AgentEventReceipts.ListRawEvents;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace AgentLedger.Infrastructure;
@@ -30,6 +32,7 @@ public static class InfrastructureServiceExtensions
 
     services.AddScoped(typeof(IRepository<>), typeof(EfRepository<>))
            .AddScoped(typeof(IReadRepository<>), typeof(EfRepository<>));
+    services.AddScoped<IRawEventQueryService, RawEventQueryService>();
 
     logger.LogInformation("{Project} services registered", "Infrastructure");
 

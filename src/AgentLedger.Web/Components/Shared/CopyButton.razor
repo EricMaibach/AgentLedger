@@ -1,0 +1,7 @@
+@* Copies text to the clipboard. Hidden unless app.js runs: the page must work without script (docs/ui.md). *@
+<button type="button" class="copy-button" data-copy="@Text" aria-label="@Label" title="@Label">⧉</button>
+
+@code {
+  [Parameter, EditorRequired] public string Text { get; set; } = string.Empty;
+  [Parameter] public string Label { get; set; } = "Copy";
+}

@@ -1,0 +1,6 @@
+@* An agent, by display name. Takes the kebab-case wire name (docs/ui.md). *@
+<span class="agent-name">@AgentDisplayName.For(WireName)</span>
+
+@code {
+  [Parameter, EditorRequired] public string WireName { get; set; } = string.Empty;
+}

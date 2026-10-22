@@ -12,6 +12,9 @@ startupLogger.LogInformation("Starting web host");
 
 builder.Services.AddServiceConfigs(startupLogger, builder);
 
+// The web UI: Blazor components rendered on the server (static SSR; no interactive render modes, ADR 0015).
+builder.Services.AddRazorComponents();
+
 builder.Services.AddFastEndpoints()
                 .SwaggerDocument(o =>
                 {

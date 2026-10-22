@@ -1,0 +1,19 @@
+@* Filters above a list (docs/ui.md): a plain GET form, so applying filters changes the URL. *@
+<form class="filter-bar" method="get" action="@Action" role="search" aria-label="Filters">
+  <div class="fields">@ChildContent</div>
+  <div class="actions">
+    <button type="submit">Apply</button>
+    <a href="@ClearHref">Clear filters</a>
+    @if (ActiveCount > 0)
+    {
+      <span class="active-count">@ActiveCount active</span>
+    }
+  </div>
+</form>
+
+@code {
+  [Parameter, EditorRequired] public string Action { get; set; } = string.Empty;
+  [Parameter, EditorRequired] public string ClearHref { get; set; } = string.Empty;
+  [Parameter] public int ActiveCount { get; set; }
+  [Parameter, EditorRequired] public RenderFragment ChildContent { get; set; } = default!;
+}

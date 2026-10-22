@@ -1,0 +1,19 @@
+@* Keyset paging (ADR 0016): only "Newer" (back to the first page) and "Older" — no page numbers. *@
+@if (NewerHref is not null || OlderHref is not null)
+{
+  <nav class="pager" aria-label="Pages">
+    @if (NewerHref is not null)
+    {
+      <a href="@NewerHref">← Newer</a>
+    }
+    @if (OlderHref is not null)
+    {
+      <a href="@OlderHref" rel="next">Older →</a>
+    }
+  </nav>
+}
+
+@code {
+  [Parameter] public string? NewerHref { get; set; }
+  [Parameter] public string? OlderHref { get; set; }
+}

@@ -1,0 +1,21 @@
+@* A payload (docs/ui.md): Formatted (indented; key order and duplicate keys kept) or Exact (the stored
+   text, byte for byte), switched by a link, so each view has its own URL. Copy always copies the exact text. *@
+<section class="json-viewer" aria-label="@Title">
+  <div class="toolbar">
+    <h2>@Title</h2>
+    <nav aria-label="Payload view">
+      <a href="@FormattedHref" aria-current="@(Exact ? null : "true")">Formatted</a>
+      <a href="@ExactHref" aria-current="@(Exact ? "true" : null)">Exact</a>
+    </nav>
+    <CopyButton Text="@Json" Label="Copy payload (exact text)" />
+  </div>
+  <pre><code>@(Exact ? Json : JsonDisplay.Indent(Json))</code></pre>
+</section>
+
+@code {
+  [Parameter, EditorRequired] public string Json { get; set; } = string.Empty;
+  [Parameter] public bool Exact { get; set; }
+  [Parameter, EditorRequired] public string FormattedHref { get; set; } = string.Empty;
+  [Parameter, EditorRequired] public string ExactHref { get; set; } = string.Empty;
+  [Parameter] public string Title { get; set; } = "Payload";
+}

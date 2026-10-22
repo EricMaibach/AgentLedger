@@ -96,8 +96,9 @@ Each step is designed with the user first (one topic at a time), then built test
 3. ✅ Design: no CLI viewing commands for now (see "Ideas").
 4. ✅ `docs/ui.md` (the UI design system) and the `web-ui` skill (`.claude/skills/web-ui/`), which loads it only for UI work.
 5. Build, test-first:
-   - **written by the user:** `ReceiptsByEventIdSpec`, the `IRawEventQueryService` interface and its EF query (keyset paging, first receipt per event, counts; Claude guides), the query handlers and the three endpoints;
-   - written by Claude: the `(received_at, id)` index migration, the Blazor pages and components, the CSS, and wiring.
+   - ✅ read side: `ReceiptsByEventIdSpec`, `GetRawEvent` (query, handler, `GET /api/raw/events/{eventId}`), `IRawEventQueryService` with its EF query (keyset paging, first receipt per event, receipt counts, preview, event-type counts), the list and counts queries and handlers, `GET /api/raw/events` and `GET /api/raw/events/counts` (opaque base64url cursor), and the `(received_at, id)` index. The JSON API is under `/api` so pages own the plain URLs ([ADR 0017](adr/0017-api-prefix-for-read-endpoints.md));
+   - ✅ UI: navigation shell, `/raw/events` and `/raw/events/{eventId}` pages, the shared building blocks, a 404 page, design tokens (`wwwroot/app.css`) and copy buttons (`wwwroot/app.js`); presentation logic unit-tested, pages covered by functional tests;
+   - next: try it in a browser against real data (light and dark, keyboard, without JavaScript) and fix what that shows.
 6. Not released until password login (Phase 2, step 2) is done.
 
 **Deferred from the EF mapping task:**

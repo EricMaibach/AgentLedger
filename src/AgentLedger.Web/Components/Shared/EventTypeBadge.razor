@@ -1,0 +1,9 @@
+@* The agent's native event name, neutral: categorizing event types is interpretation, which belongs to
+   projections (ADR 0015). Shows ×N when an event arrived more than once. *@
+<span class="badge">@Value</span>@if (ReceiptCount > 1)
+{<span class="receipt-count" title="@($"Received {ReceiptCount} times (resends)")">×@ReceiptCount</span>}
+
+@code {
+  [Parameter, EditorRequired] public string Value { get; set; } = string.Empty;
+  [Parameter] public int ReceiptCount { get; set; } = 1;
+}

@@ -20,5 +20,6 @@ Each file records one significant decision: the context, what was decided, and t
 | [0014](0014-releases-and-dogfooding.md) | Releases publish API images to GHCR; a stable ledger (Portainer stack) records this project's own development | Accepted |
 | [0015](0015-web-ui-and-evidence.md) | Web UI: Blazor static rendering, no component library; projections link to raw events as evidence | Accepted |
 | [0016](0016-read-api-and-keyset-paging.md) | Read API: keyset paging; query service for read-model lists, Specification for aggregate lookups | Accepted |
+| [0017](0017-api-prefix-for-read-endpoints.md) | JSON read API under `/api`; pages own `/raw/events…`; ingest stays at `/events` | Accepted |
 
 New ADRs: copy the structure of an existing one (Status, Context, Decision, Consequences) and use the next number.

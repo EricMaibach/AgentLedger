@@ -19,6 +19,13 @@ public static class MiddlewareConfig
 
     app.UseFastEndpoints();
 
+    // The web UI (ADR 0015): static assets, server-rendered pages, and / → the raw event list until
+    // projection pages exist. Antiforgery is required by the Razor components endpoints.
+    app.UseAntiforgery();
+    app.MapStaticAssets();
+    app.MapRazorComponents<AgentLedger.Web.Components.App>();
+    app.MapGet("/", () => Results.Redirect(AgentLedger.Web.Components.Formatting.RawEventsLink.Path)).ExcludeFromDescription();
+
     if (app.Environment.IsDevelopment())
     {
       app.UseOpenApi(options => options.Path = "/openapi/{documentName}.json");

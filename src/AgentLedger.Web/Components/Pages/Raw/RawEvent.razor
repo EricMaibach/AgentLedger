@@ -1,0 +1,112 @@
+@page "/raw/events/{EventId:guid}"
+@inject IMediator Mediator
+@inject NavigationManager Navigation
+
+@* One raw event: the evidence page projections link to (ADR 0015). Its URL is permanent. *@
+
+@if (Detail is not null)
+{
+  <PageTitle>@Detail.EventType · @DisplayFormat.ShortId(Detail.EventId) · AgentLedger</PageTitle>
+
+  <p class="breadcrumb"><a href="@RawEventsLink.Path">Raw events</a> / event</p>
+  <h1>
+    <EventTypeBadge Value="@Detail.EventType" ReceiptCount="Detail.Receipts.Count" />
+    <AgentName WireName="@WireName" />
+  </h1>
+
+  <section aria-labelledby="envelope-heading">
+    <h2 id="envelope-heading">Envelope</h2>
+    <dl class="fields">
+      <dt>Event ID</dt>
+      <dd><code>@Detail.EventId</code> <CopyButton Text="@Detail.EventId.ToString()" Label="Copy event ID" /></dd>
+      <dt>Agent</dt>
+      <dd><AgentName WireName="@WireName" /> <code>@WireName</code></dd>
+      <dt>Event type</dt>
+      <dd><code>@Detail.EventType</code></dd>
+      <dt>Session</dt>
+      <dd>
+        @if (Detail.NativeSessionId is { } session)
+        {
+          <a href="@RawEventsLink.To(new RawEventsQueryString(Session: session))"><code>@session</code></a>
+        }
+        else
+        {
+          <span class="muted">none</span>
+        }
+      </dd>
+      <dt>Captured</dt>
+      <dd><Timestamp Value="Detail.CapturedAt" WithMilliseconds="true" /></dd>
+      <dt>Host</dt>
+      <dd>@Detail.Host</dd>
+      <dt>User</dt>
+      <dd>@Detail.User</dd>
+      <dt>Project directory</dt>
+      <dd><code>@Detail.ProjectDir</code></dd>
+      <dt>Git repository</dt>
+      <dd>@(Detail.GitRepo ?? "—")</dd>
+      <dt>Git branch</dt>
+      <dd>@(Detail.GitBranch ?? "—")</dd>
+      <dt>Git worktree</dt>
+      <dd>@(Detail.GitWorktree ?? "—")</dd>
+    </dl>
+  </section>
+
+  @if (Detail.Tags.Count > 0)
+  {
+    <section aria-labelledby="tags-heading">
+      <h2 id="tags-heading">Tags</h2>
+      <dl class="fields">
+        @foreach (var (key, value) in Detail.Tags.OrderBy(tag => tag.Key, StringComparer.Ordinal))
+        {
+          <dt>@key</dt>
+          <dd>@value</dd>
+        }
+      </dl>
+    </section>
+  }
+
+  <section aria-labelledby="receipts-heading">
+    <h2 id="receipts-heading">Receipts (@Detail.Receipts.Count)</h2>
+    <p class="muted">Each time the API received this event. More than one means the agent's CLI resent it; the first is the original.</p>
+    <DataTable Caption="Receipts, oldest first">
+      <Header>
+        <th scope="col">Received (UTC)</th>
+        <th scope="col">Receipt ID</th>
+      </Header>
+      <ChildContent>
+        @foreach (var receipt in Detail.Receipts)
+        {
+          <tr>
+            <td><Timestamp Value="receipt.ReceivedAt" WithMilliseconds="true" /></td>
+            <td><ShortId Value="@receipt.ReceiptId.ToString()" Label="receipt ID" /></td>
+          </tr>
+        }
+      </ChildContent>
+    </DataTable>
+  </section>
+
+  <JsonViewer Json="@Detail.Payload" Exact="@ShowExact"
+              FormattedHref="@RawEventsLink.ToEvent(EventId)" ExactHref="@($"{RawEventsLink.ToEvent(EventId)}?view=exact")" />
+}
+
+@code {
+  [Parameter] public Guid EventId { get; set; }
+  [SupplyParameterFromQuery] public string? View { get; set; }
+
+  private RawEventDetail? Detail { get; set; }
+  private bool ShowExact => string.Equals(View, "exact", StringComparison.OrdinalIgnoreCase);
+  private string WireName => AgentWireName.FromAgentKindName(Detail!.Agent);
+
+  protected override async Task OnInitializedAsync()
+  {
+    var result = await Mediator.Send(new GetRawEventQuery(EventId));
+    if (result.IsSuccess)
+    {
+      Detail = result.Value;
+    }
+    else
+    {
+      Navigation.NotFound(); // 404, rendering the Router's NotFoundPage
+    }
+  }
+}

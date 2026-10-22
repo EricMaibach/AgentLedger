@@ -1,0 +1,10 @@
+@page "/not-found"
+
+@* Rendered with a 404 status when a page calls NavigationManager.NotFound() (Router.NotFoundPage), e.g. for
+   an unknown event ID (docs/ui.md: not found is a proper page that links back). *@
+
+<PageTitle>Not found · AgentLedger</PageTitle>
+
+<h1>Not found</h1>
+<p>There's no page or event at this address. If you followed an event link, no event with this ID has been recorded.</p>
+<p><a href="@RawEventsLink.Path">Back to raw events</a></p>
