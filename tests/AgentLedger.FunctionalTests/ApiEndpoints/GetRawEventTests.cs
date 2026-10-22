@@ -1,15 +1,20 @@
 ﻿using System.Net;
 using System.Text;
 using System.Text.Json;
+using AgentLedger.FunctionalTests.Authentication;
 
 namespace AgentLedger.FunctionalTests.ApiEndpoints;
 
-public sealed class GetRawEventTests(CustomWebApplicationFactory<Program> factory) : IClassFixture<CustomWebApplicationFactory<Program>>
+public sealed class GetRawEventTests(CustomWebApplicationFactory<Program> factory) : IClassFixture<CustomWebApplicationFactory<Program>>, IAsyncLifetime
 {
   // Whitespace, key order and a duplicate key: the detail must return the payload byte-for-byte.
   private const string OddlyFormattedPayload = "{ \"z\": 1,\n  \"a\": [true, null],  \"a\": \"dup\" }";
 
-  private readonly HttpClient _client = factory.CreateClient();
+  private HttpClient _client = default!; // signed in before each test (ADR 0018)
+
+  public async Task InitializeAsync() => _client = await factory.CreateSignedInBrowserAsync();
+
+  public Task DisposeAsync() => Task.CompletedTask;
 
   private async Task SendAsync(string envelope)
   {

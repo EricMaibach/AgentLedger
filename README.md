@@ -51,7 +51,11 @@ Requirements: Docker and VS Code with the Dev Containers extension.
    dotnet run --project src/AgentLedger.Web --launch-profile http
    curl http://localhost:57678/status
    ```
-   In Development, migrations are applied on startup, and API docs are at `http://localhost:57678/scalar`.
+   In Development, migrations are applied on startup. Open `http://localhost:57678/` in a browser: on a database with no users it asks you to create the admin account (within 10 minutes of starting the app). After signing in, the web UI is at `/raw/events` and API docs are at `/scalar`.
+
+## Running a ledger
+
+`deploy/compose.yml` runs the released image with its own Postgres, for example as a Portainer stack. Its comments list the variables, the first-run setup, and how to reset a forgotten password. By default the ledger is reachable only from the machine it runs on; see [ADR 0018](docs/adr/0018-password-login.md) before exposing it on a network.
 
 ## Recording agent activity: the `agentledger` CLI
 

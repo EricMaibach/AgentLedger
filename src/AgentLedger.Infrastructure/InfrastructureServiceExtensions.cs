@@ -1,6 +1,8 @@
 ﻿using AgentLedger.Infrastructure.Data;
 using AgentLedger.Infrastructure.Data.Queries;
+using AgentLedger.Infrastructure.Users;
 using AgentLedger.UseCases.AgentEventReceipts.ListRawEvents;
+using AgentLedger.UseCases.Users;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace AgentLedger.Infrastructure;
@@ -33,6 +35,7 @@ public static class InfrastructureServiceExtensions
     services.AddScoped(typeof(IRepository<>), typeof(EfRepository<>))
            .AddScoped(typeof(IReadRepository<>), typeof(EfRepository<>));
     services.AddScoped<IRawEventQueryService, RawEventQueryService>();
+    services.AddSingleton<IPasswordHasher, IdentityPasswordHasher>();
 
     logger.LogInformation("{Project} services registered", "Infrastructure");
 

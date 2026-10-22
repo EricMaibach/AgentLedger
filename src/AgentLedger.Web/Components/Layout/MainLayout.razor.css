@@ -56,3 +56,19 @@
 .app-main {
   padding: var(--space-5);
 }
+
+.account {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  margin-left: auto;
+  font-size: var(--text-sm);
+}
+
+.account .username {
+  color: var(--color-text-muted);
+}
+
+.account form {
+  margin: 0;
+}

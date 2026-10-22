@@ -1,0 +1,73 @@
+@page "/login"
+@attribute [AllowAnonymous]
+@inject IMediator Mediator
+@inject NavigationManager Navigation
+
+@* Sign in (ADR 0018). Wrong username and wrong password get the same message. Sends you to first-run setup
+   while there are no users, and back to the page you asked for afterwards. *@
+
+<PageTitle>Sign in · AgentLedger</PageTitle>
+
+<FormPanel Title="Sign in" Errors="Errors">
+  <EditForm Model="Input" FormName="login" OnSubmit="SignInAsync">
+    <label>
+      Username
+      <InputText @bind-Value="Input.Username" autocomplete="username" required />
+    </label>
+    <label>
+      Password
+      <InputText type="password" @bind-Value="Input.Password" autocomplete="current-password" required />
+    </label>
+    <button type="submit">Sign in</button>
+  </EditForm>
+</FormPanel>
+
+@code {
+  [CascadingParameter] public HttpContext HttpContext { get; set; } = default!;
+  [SupplyParameterFromQuery] public string? ReturnUrl { get; set; }
+  // Bound from a posted form, and null otherwise (so no initializer, BL0008); OnInitialized fills it in.
+  [SupplyParameterFromForm] private LoginInput Input { get; set; } = default!;
+
+  private List<string> Errors { get; } = [];
+
+  protected override async Task OnInitializedAsync()
+  {
+    Input ??= new LoginInput();
+
+    if (!HttpMethods.IsGet(HttpContext.Request.Method))
+    {
+      return;
+    }
+
+    if (HttpContext.User.Identity?.IsAuthenticated == true)
+    {
+      Navigation.NavigateTo(LocalReturnUrl.OrDefault(ReturnUrl));
+      return;
+    }
+
+    var setup = await Mediator.Send(new UseCases.Users.GetSetupStatus.GetSetupStatusQuery());
+    if (setup.Value != SetupStatus.Done)
+    {
+      Navigation.NavigateTo("/setup");
+    }
+  }
+
+  private async Task SignInAsync()
+  {
+    var result = await Mediator.Send(new UseCases.Users.SignIn.SignInCommand(Input.Username ?? "", Input.Password ?? ""));
+    if (!result.IsSuccess)
+    {
+      Errors.AddRange(result.Errors);
+      return;
+    }
+
+    await SessionCookie.SignInAsync(HttpContext, result.Value);
+    Navigation.NavigateTo(LocalReturnUrl.OrDefault(ReturnUrl));
+  }
+
+  private sealed class LoginInput
+  {
+    public string? Username { get; set; }
+    public string? Password { get; set; }
+  }
+}

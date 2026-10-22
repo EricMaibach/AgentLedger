@@ -11,7 +11,6 @@ public sealed class ListRawEvents(IMediator mediator)
   public override void Configure()
   {
     Get(ListRawEventsRequest.Route);
-    AllowAnonymous(); // until login (roadmap, Phase 2)
     Summary(s =>
     {
       s.Summary = "List raw events, newest first";

@@ -14,7 +14,6 @@ public sealed class GetRawEvent(IMediator mediator)
   public override void Configure()
   {
     Get(GetRawEventRequest.Route);
-    AllowAnonymous();
     Summary(s =>
     {
       s.Summary = "Get one raw event with all its receipts";

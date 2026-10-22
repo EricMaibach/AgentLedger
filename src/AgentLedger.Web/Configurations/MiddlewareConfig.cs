@@ -1,4 +1,5 @@
 ﻿using AgentLedger.Infrastructure.Data;
+using AgentLedger.Web.Users;
 using Scalar.AspNetCore;
 
 namespace AgentLedger.Web.Configurations;
@@ -17,13 +18,19 @@ public static class MiddlewareConfig
       app.UseHsts();
     }
 
+    // Login (ADR 0018): limit login attempts, then authenticate and authorize every request (deny by default).
+    app.UseRateLimiter();
+    app.UseAuthentication();
+    app.UseAuthorization();
+    app.UseAntiforgery(); // required by the Razor components endpoints and their forms
+
     app.UseFastEndpoints();
 
-    // The web UI (ADR 0015): static assets, server-rendered pages, and / → the raw event list until
-    // projection pages exist. Antiforgery is required by the Razor components endpoints.
-    app.UseAntiforgery();
-    app.MapStaticAssets();
+    // The web UI (ADR 0015): static assets (open, so the login page is styled), server-rendered pages,
+    // sign-out, and / → the raw event list until projection pages exist.
+    app.MapStaticAssets().AllowAnonymous();
     app.MapRazorComponents<AgentLedger.Web.Components.App>();
+    app.MapSignOut();
     app.MapGet("/", () => Results.Redirect(AgentLedger.Web.Components.Formatting.RawEventsLink.Path)).ExcludeFromDescription();
 
     if (app.Environment.IsDevelopment())

@@ -1,4 +1,5 @@
 ﻿using AgentLedger.Core.AgentEventReceiptAggregate;
+using AgentLedger.Core.UserAggregate;
 
 namespace AgentLedger.Infrastructure.Data;
 
@@ -10,6 +11,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
   public const string UpdatedAt = nameof(UpdatedAt);
 
   public DbSet<AgentEventReceipt> AgentEventReceipts => Set<AgentEventReceipt>();
+  public DbSet<User> Users => Set<User>();
 
   protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder) =>
     configurationBuilder.Conventions.Add(_ => new AuditTimestampsConvention());

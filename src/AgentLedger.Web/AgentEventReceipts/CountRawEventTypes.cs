@@ -25,7 +25,6 @@ public sealed class CountRawEventTypes(IMediator mediator)
   public override void Configure()
   {
     Get(CountRawEventTypesRequest.Route);
-    AllowAnonymous(); // until login (roadmap, Phase 2)
     Summary(s =>
     {
       s.Summary = "Count events by type";

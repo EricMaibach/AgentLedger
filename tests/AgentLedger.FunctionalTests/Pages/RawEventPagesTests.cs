@@ -1,16 +1,21 @@
 ﻿using System.Net;
 using System.Text;
 using AgentLedger.FunctionalTests.ApiEndpoints;
+using AgentLedger.FunctionalTests.Authentication;
 
 namespace AgentLedger.FunctionalTests.Pages;
 
 // The "Raw events" pages (ADR 0015, docs/ui.md), requested as a browser would: server-rendered HTML.
 // Each test sends events in its own session and filters on it.
-public sealed class RawEventPagesTests(CustomWebApplicationFactory<Program> factory) : IClassFixture<CustomWebApplicationFactory<Program>>
+public sealed class RawEventPagesTests(CustomWebApplicationFactory<Program> factory) : IClassFixture<CustomWebApplicationFactory<Program>>, IAsyncLifetime
 {
   private const string OddlyFormattedPayload = "{\"session_id\":\"s\",  \"z\": 1, \"a\": 2, \"a\": 3}";
 
-  private readonly HttpClient _client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+  private HttpClient _client = default!; // signed in before each test (ADR 0018)
+
+  public async Task InitializeAsync() => _client = await factory.CreateSignedInBrowserAsync();
+
+  public Task DisposeAsync() => Task.CompletedTask;
   private readonly string _session = $"session-{Guid.NewGuid():N}";
 
   private async Task<Guid> SendAsync(string eventType = "PreToolUse", Guid? eventId = null, string payload = TestEnvelope.DefaultPayload)

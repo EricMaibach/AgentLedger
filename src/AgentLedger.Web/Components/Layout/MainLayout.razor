@@ -1,15 +1,35 @@
 @inherits LayoutComponentBase
 
 @* The navigation shell (docs/ui.md, "Structure"). Projection sections (Sessions, Cost…) slot in above
-   "Raw events" in Phase 4. *@
+   "Raw events" in Phase 4. Sections and the account menu show only when signed in. *@
 <a class="skip-link" href="#main">Skip to content</a>
 <header class="app-header">
   <a class="brand" href="@RawEventsLink.Path">AgentLedger</a>
   <span class="version" title="Running build">@BuildInfo.Version</span>
+  @if (Username is not null)
+  {
+    <div class="account">
+      <span class="username" title="Signed in">@Username</span>
+      <a href="/account/password">Change password</a>
+      <form method="post" action="/logout">
+        <AntiforgeryToken />
+        <button type="submit">Sign out</button>
+      </form>
+    </div>
+  }
 </header>
-<nav class="app-nav" aria-label="Sections">
-  <NavLink href="@RawEventsLink.Path" Match="NavLinkMatch.Prefix">Raw events</NavLink>
-</nav>
+@if (Username is not null)
+{
+  <nav class="app-nav" aria-label="Sections">
+    <NavLink href="@RawEventsLink.Path" Match="NavLinkMatch.Prefix">Raw events</NavLink>
+  </nav>
+}
 <main id="main" class="app-main">
   @Body
 </main>
+
+@code {
+  [CascadingParameter] public HttpContext? HttpContext { get; set; }
+
+  private string? Username => HttpContext?.User.Identity is { IsAuthenticated: true } identity ? identity.Name : null;
+}

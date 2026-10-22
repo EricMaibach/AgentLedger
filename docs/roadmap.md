@@ -58,48 +58,39 @@ agent hook ──stdin──► agentledger CLI ──HTTP──► API ──�
 
 Each step is designed with the user first (one topic at a time), then built test-first.
 
-1. [ ] **Web UI: raw event explorer** ← next task
-   - query use cases, a read API, and pages served by the API itself;
-   - built and tested in the dev container only: **not released without step 2**, because the stable ledger's port is reachable from the network.
-2. [ ] **Password login:**
-   - users, with the first admin bootstrapped from a stack variable;
-   - **released together with step 1.**
+1. [x] **Web UI: raw event explorer** (built; released together with step 2a)
+   - `/raw/events` and `/raw/events/{eventId}` pages over a read API under `/api` ([ADR 0015](adr/0015-web-ui-and-evidence.md), [ADR 0016](adr/0016-read-api-and-keyset-paging.md), [ADR 0017](adr/0017-api-prefix-for-read-endpoints.md)), design system in `docs/ui.md`.
+2. [ ] **Password login** ([ADR 0018](adr/0018-password-login.md)):
+   - **2a** ← next task: first-run setup page, login, sign-out, change own password, `reset-password` command, deny-by-default authorization, local-only port binding. **Released together with step 1.**
+   - **2b:** user management (`/settings/users`), member and admin roles, temporary passwords changed at first sign-in.
 3. [ ] **API keys:**
    - a management page for signed-in users;
    - keys are **scoped**: *ingest* keys only send events; *read* keys only read (MCP server, scripts, CLI viewing if ever added). A leaked ingest key must not expose the ledger, and no key can manage keys.
    - `POST /events` requires an ingest key;
    - the CLI gets a way to store its key in the **user** config (never the project file, ADR 0012), and the dev container a non-committed source for it;
    - enforcement is switched on after the CLI is configured, so the spool bridges the gap.
-4. [ ] **HTTPS** for the stable ledger:
-   - e.g. a reverse proxy in the stack;
-   - passwords and keys must not cross the network in plain HTTP, and GitHub login requires HTTPS.
+4. [ ] **HTTPS**, for reaching a ledger from other machines:
+   - the app honors a reverse proxy's forwarded headers (`Secure` cookies, `https` redirects);
+   - documented recipes for personal setups: Tailscale (no domain needed), Caddy with your own domain, an existing proxy;
+   - until then the stack publishes its port only locally (ADR 0018).
 5. [ ] **GitHub login** (optional):
    - an **allowlist** of GitHub users or an organization, since GitHub login alone admits any GitHub account;
    - each installation registers its own GitHub OAuth app. Password login remains the default.
 
-## Next task: web UI, the "Raw events" section
+## Next task: password login, step 2a
 
-**Goal:** browse what's in the ledger without database access, for validation (Phase 1 verification) and everyday visibility. Decisions: [ADR 0015](adr/0015-web-ui-and-evidence.md) (Blazor static SSR, no component library, raw data as evidence).
+**Goal:** protect the UI and the read API so they can be released. Decisions: [ADR 0018](adr/0018-password-login.md).
 
-**Scope of v1:**
-- `/raw/events`: list (newest first).
-  - Filters: agent, event type, session, host, repo, time range.
-  - "One row per event" toggle (query-time `DISTINCT ON (event_id)`, shows ×N for resends).
-  - Keyset paging.
-  - When filtered to a session, that session's event-type counts.
-- `/raw/events/{eventId}`: envelope fields, every receipt, and the payload pretty-printed or exact, with copy. A **permanent URL**: projections will link here.
-- A navigation shell, with the ledger version in the header. No raw sessions page; previews are raw text.
+**Steps (test-first):**
+1. ✅ Core: `User` aggregate (`UserId`, case-insensitive `Username`, `PasswordHash`, `SecurityStamp`, admin flag, failed sign-ins, lockout end) and `PasswordRules`: length 15–128, lockout after 5 failures for 15 minutes, a new security stamp on password change.
+2. ✅ Infrastructure: `users` table (unique username) and `IdentityPasswordHasher` (Identity's `PasswordHasher<T>`, rehash of older formats).
+3. ✅ Use cases: `GetSetupStatus` and `SetUpFirstAdmin` (with `SetupWindow`), `SignIn` (lockout, no username enumeration), `ChangePassword`, `ResetPassword`, `CheckSession`.
+4. ✅ Web: cookie authentication (7-day sliding, security stamp re-checked every 5 minutes), deny-by-default fallback policy, `/api` answering 401, login rate limit (10 a minute per IP); pages `/setup`, `/login`, `/account/password`; account menu and sign-out in the header.
+5. ✅ `reset-password <username>` (`dotnet AgentLedger.Web.dll reset-password <username>` in the container).
+6. ✅ Deploy: `AGENTLEDGER_BIND` in `deploy/compose.yml` (default `127.0.0.1`), first-run and reset notes there and in the README.
+7. **Next:** try it in a browser (setup, sign in, change password, sign out), then release the UI and login together. Before redeploying the stable ledger, set `AGENTLEDGER_BIND=172.17.0.1` on the stack (so the dev container still reaches it) and open it at `http://172.17.0.1:58090/` within 10 minutes of the redeploy to create the admin. Then the Phase 1 verification (easier with the explorer).
 
-**Steps:**
-1. ✅ Design: UI technology and what v1 shows ([ADR 0015](adr/0015-web-ui-and-evidence.md)).
-2. ✅ Design: read API shape ([ADR 0016](adr/0016-read-api-and-keyset-paging.md)): three endpoints, keyset paging, a query service for the list and counts, a Specification for event detail.
-3. ✅ Design: no CLI viewing commands for now (see "Ideas").
-4. ✅ `docs/ui.md` (the UI design system) and the `web-ui` skill (`.claude/skills/web-ui/`), which loads it only for UI work.
-5. Build, test-first:
-   - ✅ read side: `ReceiptsByEventIdSpec`, `GetRawEvent` (query, handler, `GET /api/raw/events/{eventId}`), `IRawEventQueryService` with its EF query (keyset paging, first receipt per event, receipt counts, preview, event-type counts), the list and counts queries and handlers, `GET /api/raw/events` and `GET /api/raw/events/counts` (opaque base64url cursor), and the `(received_at, id)` index. The JSON API is under `/api` so pages own the plain URLs ([ADR 0017](adr/0017-api-prefix-for-read-endpoints.md));
-   - ✅ UI: navigation shell, `/raw/events` and `/raw/events/{eventId}` pages, the shared building blocks, a 404 page, design tokens (`wwwroot/app.css`) and copy buttons (`wwwroot/app.js`); presentation logic unit-tested, pages covered by functional tests;
-   - next: try it in a browser against real data (light and dark, keyboard, without JavaScript) and fix what that shows.
-6. Not released until password login (Phase 2, step 2) is done.
+**Open question:** a URL that matches no page (e.g. `/raw/events/not-a-guid`) returns 404 with an empty body, because it never reaches Blazor. `UseStatusCodePagesWithReExecute("/not-found")` would fix it but also changes `/api` 404s; decide when convenient.
 
 **Deferred from the EF mapping task:**
 - An index on `context_git_repo` / `context_git_branch`. EF 10 can't declare an index on complex-type columns. Add it with `migrationBuilder.Sql` when a projection or query actually filters by repo or branch.

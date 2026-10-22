@@ -5,7 +5,17 @@
 # Variables (set them in Portainer's "Environment variables" for the stack):
 #   DB_PASSWORD        required; the ledger database's password
 #   AGENTLEDGER_PORT   optional; host port for the API (default 58090)
+#   AGENTLEDGER_BIND   optional; host address the port is published on (default 127.0.0.1: this machine only).
+#                      Traffic stays on the machine, so plain HTTP is safe. Use 172.17.0.1 (Docker's bridge) to
+#                      also reach it from containers on this host, e.g. a dev container via host.docker.internal.
+#                      Don't publish it on the network (0.0.0.0) until HTTPS is set up (docs/adr/0018).
 #   AGENTLEDGER_IMAGE  optional; defaults to the latest release on GitHub's container registry
+#
+# First run: open http://<bind address>:<port>/ in a browser within 10 minutes of starting the stack and
+# create the admin account. (Missed it? Restart the stack and try again.)
+#
+# Forgotten password: docker exec <api container> dotnet AgentLedger.Web.dll reset-password <username>
+# prints a new one (e.g. docker exec agentledger-api-1 dotnet AgentLedger.Web.dll reset-password eric).
 #
 # Updating: after publishing a GitHub Release, use Portainer's "Pull and redeploy" (or
 # `docker compose pull && docker compose up -d`). Data lives in the ledger-data volume and survives
@@ -15,7 +25,7 @@ services:
   api:
     image: ${AGENTLEDGER_IMAGE:-ghcr.io/ericmaibach/agentledger-api:latest}
     ports:
-      - "${AGENTLEDGER_PORT:-58090}:8080"
+      - "${AGENTLEDGER_BIND:-127.0.0.1}:${AGENTLEDGER_PORT:-58090}:8080"
     environment:
       ConnectionStrings__AgentLedger: Host=db;Database=agentledger;Username=agentledger;Password=${DB_PASSWORD:?Set DB_PASSWORD for the ledger database}
     depends_on:

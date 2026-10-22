@@ -1,4 +1,6 @@
-﻿using AgentLedger.Web.Configurations;
+﻿using AgentLedger.UseCases.Users;
+using AgentLedger.Web.Configurations;
+using AgentLedger.Web.Users;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,6 +16,7 @@ builder.Services.AddServiceConfigs(startupLogger, builder);
 
 // The web UI: Blazor components rendered on the server (static SSR; no interactive render modes, ADR 0015).
 builder.Services.AddRazorComponents();
+builder.Services.AddLedgerAuthentication(builder.Configuration);
 
 builder.Services.AddFastEndpoints()
                 .SwaggerDocument(o =>
@@ -29,11 +32,21 @@ builder.Services.AddFastEndpoints()
 
 var app = builder.Build();
 
+// `reset-password <username>` runs instead of the web server (ADR 0018).
+if (ResetPasswordCommandLine.IsInvokedBy(args))
+{
+  return await ResetPasswordCommandLine.RunAsync(app.Services, args, Console.Out);
+}
+
 await app.UseAppMiddlewareAndMigrateDatabase();
 
 app.MapDefaultEndpoints(); // health checks (Development only)
 
+// First-run setup is open for a few minutes from now (ADR 0018).
+app.Services.GetRequiredService<SetupWindow>();
+
 app.Run();
+return 0;
 
 // Make the implicit Program.cs class public, so integration tests can reference the correct assembly for host building
 public sealed partial class Program { }

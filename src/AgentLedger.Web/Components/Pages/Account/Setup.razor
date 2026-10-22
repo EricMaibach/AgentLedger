@@ -1,0 +1,76 @@
+@page "/setup"
+@attribute [AllowAnonymous]
+@inject IMediator Mediator
+@inject NavigationManager Navigation
+
+@* First-run setup (ADR 0018): creates the first admin while there are no users, for 10 minutes after the
+   ledger starts. Gone for good once a user exists. *@
+
+<PageTitle>Set up · AgentLedger</PageTitle>
+
+@if (Status == SetupStatus.TimedOut)
+{
+  <FormPanel Title="Setup timed out"
+             Intro="For security, the first admin can only be created in the first 10 minutes after the ledger starts. Restart the container (or the app) and open this page again." />
+}
+else
+{
+  <FormPanel Title="Welcome to AgentLedger" Errors="Errors"
+             Intro="Create the first admin account. You'll use it to sign in to this ledger.">
+    <EditForm Model="Input" FormName="setup" OnSubmit="SetUpAsync">
+      <label>
+        Username
+        <InputText @bind-Value="Input.Username" autocomplete="username" required />
+      </label>
+      <label>
+        Password (at least @Core.UserAggregate.PasswordRules.MinLength characters; a few unrelated words work well)
+        <InputText type="password" @bind-Value="Input.Password" autocomplete="new-password" required />
+      </label>
+      <button type="submit">Create admin</button>
+    </EditForm>
+  </FormPanel>
+}
+
+@code {
+  [CascadingParameter] public HttpContext HttpContext { get; set; } = default!;
+  // Bound from a posted form, and null otherwise (so no initializer, BL0008); OnInitialized fills it in.
+  [SupplyParameterFromForm] private SetupInput Input { get; set; } = default!;
+
+  private SetupStatus? Status { get; set; }
+  private List<string> Errors { get; } = [];
+
+  protected override async Task OnInitializedAsync()
+  {
+    Input ??= new SetupInput();
+
+    Status = (await Mediator.Send(new UseCases.Users.GetSetupStatus.GetSetupStatusQuery())).Value;
+    if (Status == SetupStatus.Done)
+    {
+      Navigation.NotFound();
+    }
+  }
+
+  private async Task SetUpAsync()
+  {
+    if (Status != SetupStatus.Required)
+    {
+      return;
+    }
+
+    var result = await Mediator.Send(new UseCases.Users.SetUpFirstAdmin.SetUpFirstAdminCommand(Input.Username ?? "", Input.Password ?? ""));
+    if (!result.IsSuccess)
+    {
+      Errors.AddRange(result.ValidationErrors.Select(e => e.ErrorMessage).Concat(result.Errors));
+      return;
+    }
+
+    await SessionCookie.SignInAsync(HttpContext, result.Value);
+    Navigation.NavigateTo(LocalReturnUrl.Default);
+  }
+
+  private sealed class SetupInput
+  {
+    public string? Username { get; set; }
+    public string? Password { get; set; }
+  }
+}

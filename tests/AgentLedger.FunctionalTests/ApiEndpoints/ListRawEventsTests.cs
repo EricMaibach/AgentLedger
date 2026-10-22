@@ -1,14 +1,19 @@
 ﻿using System.Net;
 using System.Text;
 using System.Text.Json;
+using AgentLedger.FunctionalTests.Authentication;
 
 namespace AgentLedger.FunctionalTests.ApiEndpoints;
 
 // GET /api/raw/events and GET /api/raw/events/counts (ADR 0016, 0017). Each test sends events in its own session
 // and filters on it, so tests sharing the database don't see each other's events.
-public sealed class ListRawEventsTests(CustomWebApplicationFactory<Program> factory) : IClassFixture<CustomWebApplicationFactory<Program>>
+public sealed class ListRawEventsTests(CustomWebApplicationFactory<Program> factory) : IClassFixture<CustomWebApplicationFactory<Program>>, IAsyncLifetime
 {
-  private readonly HttpClient _client = factory.CreateClient();
+  private HttpClient _client = default!; // signed in before each test (ADR 0018)
+
+  public async Task InitializeAsync() => _client = await factory.CreateSignedInBrowserAsync();
+
+  public Task DisposeAsync() => Task.CompletedTask;
   private readonly string _session = $"session-{Guid.NewGuid():N}";
 
   private async Task<Guid> SendAsync(string eventType = "PreToolUse", Guid? eventId = null)

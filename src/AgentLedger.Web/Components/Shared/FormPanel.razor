@@ -1,0 +1,31 @@
+@* A small form on its own (sign in, setup, change password; docs/ui.md): a heading, what went wrong or
+   right, and the fields. *@
+<section class="form-panel" aria-labelledby="form-panel-heading">
+  <h1 id="form-panel-heading">@Title</h1>
+  @if (Intro is not null)
+  {
+    <p class="intro">@Intro</p>
+  }
+  @if (Errors.Count > 0)
+  {
+    <div class="alert" role="alert">
+      @foreach (var error in Errors)
+      {
+        <p>@error</p>
+      }
+    </div>
+  }
+  @if (Success is not null)
+  {
+    <p class="success" role="status">@Success</p>
+  }
+  @ChildContent
+</section>
+
+@code {
+  [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+  [Parameter] public string? Intro { get; set; }
+  [Parameter] public IReadOnlyList<string> Errors { get; set; } = [];
+  [Parameter] public string? Success { get; set; }
+  [Parameter] public RenderFragment? ChildContent { get; set; }
+}

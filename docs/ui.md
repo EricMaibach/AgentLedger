@@ -28,6 +28,11 @@ A header with the product name and the ledger's version (from `/status`, e.g. `0
 
 In v1 only "Raw events" exists. The home page `/` redirects to it until projection pages exist.
 
+The header also holds the account menu when signed in: the username, "Change password" and a "Sign out" button (a POST form, [ADR 0018](adr/0018-password-login.md)). Signed out, the header shows only the product name and version, and there is no section navigation.
+
+### Account pages
+`/login`, `/setup` (first run only) and `/account/password` are each a single **FormPanel**. Every page requires sign-in unless it is explicitly marked `@attribute [AllowAnonymous]` (deny by default); only the login, setup and not-found pages are.
+
 ### URLs
 - Lowercase, kebab-case paths; sections are top-level segments (`/raw/…`).
 - **Permanent:** a page's URL never changes meaning once released. `/raw/events/{eventId}` in particular is the evidence link projections will use.
@@ -50,6 +55,7 @@ Use these shared components (in `Components/Shared/`) instead of re-creating the
 | **EventTypeBadge** | an event's type | The agent's native name (`PreToolUse`) in a small, **neutral** badge. No per-type colors in the raw section: categorizing event types is agent-specific interpretation (ADR 0003, ADR 0015). |
 | **JsonViewer** | payloads | Two views: **Formatted** (indented, the default) and **Exact** (the stored text, byte for byte), switched by a query parameter (`?view=exact`). Formatting keeps key order and duplicate keys. Monospace, wraps long lines, with a copy button that copies the exact text. |
 | **CopyButton** | copying a value (used by ShortId and JsonViewer) | A `<button>` with an accessible label (`Copy event ID`) and `data-copy`; `app.js` does the copying. Hidden unless `app.js` runs (`html.js`), so there is never a button that can't work. |
+| **FormPanel** | a small form on its own (sign in, setup, change password) | A centered panel: an `<h1>` title, an optional intro, errors in an `alert`, a success message in a `status`, then the form. Fields are stacked, each with a visible `<label>`; one primary submit button. Use `EditForm` with a `FormName` (static SSR form handling and antiforgery) and the right `autocomplete` values (`username`, `current-password`, `new-password`). |
 | **EmptyState** | a list with no results | Says what was searched for ("No events match these filters") and offers the way out ("Clear filters"). |
 
 **Errors:** an unexpected failure shows the standard error page with a short reference, never a stack trace. Not found (e.g. an unknown event ID) is a proper 404 page that links back to the list: a page calls `NavigationManager.NotFound()`, which renders `Pages/NotFound.razor` (the Router's `NotFoundPage`) with status 404. Don't set `Response.StatusCode` yourself: the renderer then sends an empty body. Unusable filters (an unknown agent, a bad date or cursor) are not errors: the list page explains them in an alert and stays 200.
