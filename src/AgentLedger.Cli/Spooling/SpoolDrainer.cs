@@ -55,7 +55,7 @@ internal sealed class SpoolDrainer(EventSpool spool, IEventSender sender, ICliLo
         log.Error($"API rejected event {eventId}; dropped it: {outcome.Detail}");
         break;
       case SendResult.Failed:
-        log.Info($"API unavailable; event {eventId} stays in the spool: {outcome.Detail}");
+        log.Info($"Not sent yet; event {eventId} stays in the spool: {outcome.Detail}");
         break;
     }
 

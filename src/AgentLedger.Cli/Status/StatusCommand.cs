@@ -18,6 +18,9 @@ internal static class StatusCommand
       var settings = new SettingsLoader(environment).Load(environment.CurrentDirectory);
       using var http = new HttpClient { Timeout = settings.Timeout.Value };
       var api = await StatusReport.CheckApiAsync(http, settings.Url.Value);
+      var key = api.Reachable && settings.ApiKey.Value is { } apiKey
+        ? await Login.ApiKeyCheck.CheckAsync(http, settings.Url.Value, apiKey)
+        : null;
       var spool = new EventSpool(settings.SpoolDirectory.Value, SpoolLimits.Default).Measure();
       var log = new FileLog(CliPaths.LogFile(environment), TimeProvider.System);
 
@@ -26,7 +29,7 @@ internal static class StatusCommand
         .Select(scope => scope.ToString().ToLowerInvariant())
         .ToList();
 
-      await stdout.WriteAsync(StatusReport.Render(settings, api, spool, log.Path, log.ReadLast(5), installedScopes));
+      await stdout.WriteAsync(StatusReport.Render(settings, api, key, spool, log.Path, log.ReadLast(5), installedScopes));
       return api.Reachable ? 0 : 1;
     });
 

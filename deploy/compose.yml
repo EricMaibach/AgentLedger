@@ -12,7 +12,8 @@
 #   AGENTLEDGER_IMAGE  optional; defaults to the latest release on GitHub's container registry
 #
 # First run: open http://<bind address>:<port>/ in a browser within 10 minutes of starting the stack and
-# create the admin account. (Missed it? Restart the stack and try again.)
+# create the admin account. (Missed it? Restart the stack and try again.) Then create an ingest key under
+# Settings → API keys for each machine that sends events, and give it to its CLI: `agentledger login`.
 #
 # Forgotten password: docker exec <api container> dotnet AgentLedger.Web.dll reset-password <username>
 # prints a new one (e.g. docker exec agentledger-api-1 dotnet AgentLedger.Web.dll reset-password eric).

@@ -1,4 +1,6 @@
-﻿namespace AgentLedger.Core.AgentEventReceiptAggregate;
+﻿using AgentLedger.Core.ApiKeyAggregate;
+
+namespace AgentLedger.Core.AgentEventReceiptAggregate;
 
 // One message received from an agent's hook, exactly as sent. A resent event is a new receipt
 // with the same EventId; deduplication happens downstream (ADR 0010).
@@ -14,9 +16,13 @@ public sealed class AgentEventReceipt : EntityBase<AgentEventReceipt, ReceiptId>
   public IReadOnlyDictionary<string, string> Tags { get; private set; }
   public string Payload { get; private set; }
 
+  // The API key that delivered this receipt: the authenticated sender (ADR 0019). None on receipts from
+  // before keys were required.
+  public ApiKeyId? ApiKeyId { get; private set; }
+
   public AgentEventReceipt(ReceiptId id, AgentEventId eventId, AgentKind agent, string eventType, string? nativeSessionId,
                            DateTimeOffset capturedAt, DateTimeOffset receivedAt, CaptureContext context,
-                           IReadOnlyDictionary<string, string> tags, string payload)
+                           IReadOnlyDictionary<string, string> tags, string payload, ApiKeyId? apiKeyId = null)
   {
     Id = id;
     EventId = eventId;
@@ -28,6 +34,7 @@ public sealed class AgentEventReceipt : EntityBase<AgentEventReceipt, ReceiptId>
     Context = Guard.Against.Null(context);
     Tags = new Dictionary<string, string>(Guard.Against.Null(tags));
     Payload = Guard.Against.NullOrWhiteSpace(payload);
+    ApiKeyId = apiKeyId;
   }
 
 #pragma warning disable CS8618 // Required by EF Core: properties are set when a row is loaded

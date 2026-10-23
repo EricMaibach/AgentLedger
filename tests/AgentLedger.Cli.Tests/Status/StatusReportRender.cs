@@ -1,4 +1,5 @@
 ﻿using AgentLedger.Cli.Configuration;
+using AgentLedger.Cli.Login;
 using AgentLedger.Cli.Spooling;
 using AgentLedger.Cli.Status;
 
@@ -15,10 +16,11 @@ public sealed class StatusReportRender
     Warnings: warnings ?? []);
 
   private static string Render(CliSettings? settings = null, ApiCheck? api = null, IReadOnlyList<string>? recentLog = null,
-    IReadOnlyList<string>? installedScopes = null) =>
+    IReadOnlyList<string>? installedScopes = null, ApiKeyCheck? key = null) =>
     StatusReport.Render(
       settings ?? Settings(),
       api ?? new ApiCheck(Reachable: true, "reachable (12 ms)"),
+      key,
       new SpoolSize(Count: 3, Bytes: 2048),
       "/home/eric/.local/share/agentledger/agentledger.log",
       recentLog ?? [],
@@ -42,6 +44,32 @@ public sealed class StatusReportRender
 
     report.ShouldNotContain("super-secret-key");
     report.ShouldContain("environment (AGENTLEDGER_API_KEY)");
+  }
+
+  [Fact]
+  public void ShowsWhatTheLedgerSaysAboutTheKey()
+  {
+    var key = new ApiKeyCheck(ApiKeyCheckResult.Accepted, "accepted: 'laptop' (ingest, owner eric)", "laptop", "ingest", "eric");
+
+    Render(Settings(apiKey: "agl_ingest_x_y"), key: key).ShouldContain("accepted: 'laptop' (ingest, owner eric)");
+  }
+
+  [Fact]
+  public void WarnsWithoutAKey()
+  {
+    // The ledger refuses events without an ingest key (ADR 0019); they wait in the spool.
+    Render(Settings(apiKey: null)).ShouldContain("agentledger login");
+  }
+
+  [Fact]
+  public void WarnsAboutARejectedKey()
+  {
+    var key = new ApiKeyCheck(ApiKeyCheckResult.Rejected, "rejected: unknown, revoked or expired", null, null, null);
+
+    var report = Render(Settings(apiKey: "agl_ingest_x_y"), key: key);
+
+    report.ShouldContain("rejected: unknown, revoked or expired");
+    report.ShouldContain("agentledger login");
   }
 
   [Fact]

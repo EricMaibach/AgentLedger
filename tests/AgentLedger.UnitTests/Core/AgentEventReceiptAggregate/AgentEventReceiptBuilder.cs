@@ -1,4 +1,5 @@
 ﻿using AgentLedger.Core.AgentEventReceiptAggregate;
+using AgentLedger.Core.ApiKeyAggregate;
 
 namespace AgentLedger.UnitTests.Core.AgentEventReceiptAggregate;
 
@@ -19,6 +20,7 @@ public sealed class AgentEventReceiptBuilder
   private CaptureContext _context = new("devbox", "eric", "/workspace", "github.com/EricMaibach/AgentLedger", "main", null);
   private IReadOnlyDictionary<string, string> _tags = new Dictionary<string, string> { ["story"] = "123" };
   private string _payload = Payload;
+  private ApiKeyId? _apiKeyId;
 
   public AgentEventReceiptBuilder WithReceiptId(ReceiptId receiptId) { _receiptId = receiptId; return this; }
   public AgentEventReceiptBuilder WithEventId(AgentEventId eventId) { _eventId = eventId; return this; }
@@ -30,7 +32,8 @@ public sealed class AgentEventReceiptBuilder
   public AgentEventReceiptBuilder WithContext(CaptureContext context) { _context = context; return this; }
   public AgentEventReceiptBuilder WithTags(IReadOnlyDictionary<string, string> tags) { _tags = tags; return this; }
   public AgentEventReceiptBuilder WithPayload(string payload) { _payload = payload; return this; }
+  public AgentEventReceiptBuilder WithApiKeyId(ApiKeyId? apiKeyId) { _apiKeyId = apiKeyId; return this; }
 
   public AgentEventReceipt Build() =>
-    new(_receiptId, _eventId, _agent, _eventType, _nativeSessionId, _capturedAt, _receivedAt, _context, _tags, _payload);
+    new(_receiptId, _eventId, _agent, _eventType, _nativeSessionId, _capturedAt, _receivedAt, _context, _tags, _payload, _apiKeyId);
 }

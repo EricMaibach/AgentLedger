@@ -72,6 +72,7 @@
       <Header>
         <th scope="col">Received (UTC)</th>
         <th scope="col">Receipt ID</th>
+        <th scope="col">Sent by</th>
       </Header>
       <ChildContent>
         @foreach (var receipt in Detail.Receipts)
@@ -79,6 +80,16 @@
           <tr>
             <td><Timestamp Value="receipt.ReceivedAt" WithMilliseconds="true" /></td>
             <td><ShortId Value="@receipt.ReceiptId.ToString()" Label="receipt ID" /></td>
+            <td>
+              @if (receipt.SentWith is { } sender)
+              {
+                @sender.Owner <span class="muted">(key: @sender.KeyName)</span>
+              }
+              else
+              {
+                <span class="muted">—</span>
+              }
+            </td>
           </tr>
         }
       </ChildContent>

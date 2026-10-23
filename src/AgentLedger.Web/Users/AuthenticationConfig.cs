@@ -1,6 +1,8 @@
 ﻿using System.Threading.RateLimiting;
+using AgentLedger.Core.ApiKeyAggregate;
 using AgentLedger.UseCases.Users;
 using Microsoft.AspNetCore.Antiforgery;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 
@@ -9,6 +11,15 @@ namespace AgentLedger.Web.Users;
 /// <summary>Password login (ADR 0018): cookie sessions, deny by default, and a limit on login attempts.</summary>
 public static class AuthenticationConfig
 {
+  /// <summary>Ingest: an API key with the ingest scope, always (ADR 0019).</summary>
+  public const string IngestPolicy = "Ingest";
+
+  /// <summary>The JSON read API: a signed-in browser, or an API key with the read scope (ADR 0019).</summary>
+  public const string ReadApiPolicy = "ReadApi";
+
+  /// <summary>Any valid API key, whatever its scope: for a key's holder to check it.</summary>
+  public const string AnyApiKeyPolicy = "AnyApiKey";
+
   /// <summary>Login attempts allowed per IP address per minute, unless configured otherwise.</summary>
   public const int DefaultLoginAttemptsPerMinute = 10;
 
@@ -33,11 +44,28 @@ public static class AuthenticationConfig
         options.LoginPath = "/login";
         options.ReturnUrlParameter = "returnUrl";
         options.EventsType = typeof(SessionCookieEvents);
-      });
+      })
+      // Used only where a policy names it, so a key never opens a page.
+      .AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>(ApiKeyAuthenticationHandler.SchemeName, null);
 
-    // Deny by default: everything needs a signed-in user unless it is explicitly marked AllowAnonymous.
+    const string cookie = CookieAuthenticationDefaults.AuthenticationScheme;
+    const string apiKey = ApiKeyAuthenticationHandler.SchemeName;
+
     services.AddAuthorizationBuilder()
-      .SetFallbackPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build());
+      // Deny by default: everything needs a signed-in user unless it is explicitly marked AllowAnonymous.
+      .SetFallbackPolicy(new AuthorizationPolicyBuilder(cookie).RequireAuthenticatedUser().Build())
+      .AddPolicy(IngestPolicy, policy => policy
+        .AddAuthenticationSchemes(apiKey)
+        .RequireClaim(ApiKeyAuthenticationHandler.ScopeClaim, ApiKeyScope.Ingest.Name))
+      .AddPolicy(ReadApiPolicy, policy => policy
+        .AddAuthenticationSchemes(cookie, apiKey)
+        .RequireAuthenticatedUser()
+        .RequireAssertion(context =>
+          context.User.Identities.Any(identity => identity.IsAuthenticated && identity.AuthenticationType == cookie)
+          || context.User.HasClaim(ApiKeyAuthenticationHandler.ScopeClaim, ApiKeyScope.Read.Name)))
+      .AddPolicy(AnyApiKeyPolicy, policy => policy
+        .AddAuthenticationSchemes(apiKey)
+        .RequireAuthenticatedUser());
 
     // Only login attempts are limited, not loading the page. Behind a reverse proxy every request has the
     // proxy's address; forwarded headers come with HTTPS support (roadmap, Phase 2 step 4).

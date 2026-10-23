@@ -1,4 +1,5 @@
 ﻿using AgentLedger.Core.AgentEventReceiptAggregate;
+using AgentLedger.Core.ApiKeyAggregate;
 
 namespace AgentLedger.UnitTests.Core.AgentEventReceiptAggregate;
 
@@ -36,6 +37,16 @@ public sealed class AgentEventReceiptConstructor
     var receipt = new AgentEventReceiptBuilder().WithPayload(payload).Build();
 
     receipt.Payload.ShouldBe(payload);
+  }
+
+  [Fact]
+  public void RecordsTheKeyItWasSentWith()
+  {
+    // The authenticated sender (ADR 0019); receipts from before keys were required have none.
+    var keyId = ApiKeyId.From(Guid.CreateVersion7());
+
+    new AgentEventReceiptBuilder().WithApiKeyId(keyId).Build().ApiKeyId.ShouldBe(keyId);
+    new AgentEventReceiptBuilder().Build().ApiKeyId.ShouldBeNull();
   }
 
   [Fact]

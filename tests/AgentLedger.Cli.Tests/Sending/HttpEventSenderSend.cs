@@ -47,12 +47,24 @@ public sealed class HttpEventSenderSend
   [InlineData(HttpStatusCode.ServiceUnavailable, (int)SendResult.Failed)]
   [InlineData(HttpStatusCode.RequestTimeout, (int)SendResult.Failed)]          // 4xx, but temporary
   [InlineData(HttpStatusCode.TooManyRequests, (int)SendResult.Failed)]         // 4xx, but temporary
+  [InlineData(HttpStatusCode.Unauthorized, (int)SendResult.Failed)]            // key problem: keep the event (ADR 0019)
+  [InlineData(HttpStatusCode.Forbidden, (int)SendResult.Failed)]
   // `int`, not SendResult: a public test method can't take the CLI's internal types as parameters.
   public async Task MapsTheResponseStatus(HttpStatusCode status, int expected)
   {
     var (sender, _) = Create(status);
 
     (await sender.SendAsync("{}", CancellationToken.None)).Result.ShouldBe((SendResult)expected);
+  }
+
+  [Theory]
+  [InlineData(HttpStatusCode.Unauthorized, "API key missing, unknown, revoked or expired")]
+  [InlineData(HttpStatusCode.Forbidden, "API key isn't an ingest key")]
+  public async Task SaysWhatIsWrongWithTheKey(HttpStatusCode status, string expected)
+  {
+    var (sender, _) = Create(status, apiKey: "agl_read_x_y");
+
+    (await sender.SendAsync("{}", CancellationToken.None)).Detail.ShouldContain(expected);
   }
 
   [Fact]

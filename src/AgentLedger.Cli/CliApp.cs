@@ -3,6 +3,7 @@ using AgentLedger.Cli.Flush;
 using AgentLedger.Cli.Hook;
 using AgentLedger.Cli.Install;
 using AgentLedger.Cli.Logging;
+using AgentLedger.Cli.Login;
 using AgentLedger.Cli.Status;
 
 namespace AgentLedger.Cli;
@@ -18,6 +19,7 @@ internal static class CliApp
       HookCommand.Create(environment, stdin),
       StatusCommand.Create(environment, stdout),
       FlushCommand.Create(environment, stdout),
+      LoginCommand.Create(environment, stdin, stdout),
     };
 
     foreach (var command in InstallCommands.Create(environment, stdout, stderr))

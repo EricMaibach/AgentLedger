@@ -18,7 +18,7 @@ internal sealed class SettingsLoader(IHostEnvironment environment)
   {
     var warnings = new List<string>();
     var project = ReadFile(FindProjectFile(startDirectory), "project", warnings);
-    var user = ReadFile(Path.Combine(environment.UserConfigDirectory, "agentledger", "config.json"), "user", warnings);
+    var user = ReadFile(UserConfigFile.PathFor(environment), "user", warnings);
 
     if (project?.Values.ContainsKey("apiKey") == true)
     {

@@ -1,4 +1,5 @@
 ﻿using AgentLedger.Core.AgentEventReceiptAggregate;
+using AgentLedger.Core.ApiKeyAggregate;
 using AgentLedger.Infrastructure.Data;
 
 namespace AgentLedger.IntegrationTests.Data;
@@ -78,6 +79,24 @@ public sealed class AgentEventReceiptPersistence(PostgresFixture db)
   }
 
   [Fact]
+  public async Task RoundTripsTheKeyItWasSentWith()
+  {
+    var key = await ApiKeyPersistence.SaveNewKeyAsync(db);
+    var original = NewReceipt(apiKeyId: key.Id);
+
+    await SaveAsync(original);
+
+    (await LoadAsync(original.Id)).ApiKeyId.ShouldBe(key.Id);
+  }
+
+  [Fact]
+  public async Task RejectsAKeyThatDoesNotExist()
+  {
+    // A foreign key: a receipt can only name a real key (keys are never deleted).
+    await Should.ThrowAsync<DbUpdateException>(() => SaveAsync(NewReceipt(apiKeyId: ApiKeyId.From(Guid.CreateVersion7()))));
+  }
+
+  [Fact]
   public async Task RejectsDuplicateReceiptId()
   {
     var first = NewReceipt();
@@ -106,7 +125,8 @@ public sealed class AgentEventReceiptPersistence(PostgresFixture db)
     AgentEventId? eventId = null,
     string? nativeSessionId = "3829bce8-0000-0000-0000-000000000000",
     CaptureContext? context = null,
-    string payload = """{"session_id":"3829bce8","hook_event_name":"PreToolUse"}""") =>
+    string payload = """{"session_id":"3829bce8","hook_event_name":"PreToolUse"}""",
+    ApiKeyId? apiKeyId = null) =>
     new(
       receiptId ?? ReceiptId.From(Guid.CreateVersion7()),
       eventId ?? AgentEventId.From(Guid.CreateVersion7()),
@@ -117,5 +137,6 @@ public sealed class AgentEventReceiptPersistence(PostgresFixture db)
       new DateTimeOffset(2026, 9, 23, 1, 0, 0, 40, TimeSpan.Zero),
       context ?? new CaptureContext("devbox", "eric", "/workspace", "github.com/EricMaibach/AgentLedger", "main", "/workspace"),
       new Dictionary<string, string> { ["story"] = "123", ["phase"] = "build" },
-      payload);
+      payload,
+      apiKeyId);
 }

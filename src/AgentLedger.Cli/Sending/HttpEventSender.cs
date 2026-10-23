@@ -12,7 +12,7 @@ internal enum SendResult
   /// <summary>The API refused it as malformed (400 and similar). Resending won't help: remove it and log why.</summary>
   Rejected,
 
-  /// <summary>Server problem, timeout or no connection. Keep it in the spool and retry later.</summary>
+  /// <summary>Server problem, timeout, no connection or an API key problem. Keep it in the spool and retry later.</summary>
   Failed,
 }
 
@@ -48,6 +48,15 @@ internal sealed class HttpEventSender(HttpClient http, Uri apiUrl, string? apiKe
       if (response.IsSuccessStatusCode)
       {
         return new SendOutcome(SendResult.Accepted, detail);
+      }
+
+      // A key problem is configuration, not a bad event: keep the event until the key is fixed (ADR 0019).
+      if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
+      {
+        var problem = response.StatusCode is HttpStatusCode.Unauthorized
+          ? "API key missing, unknown, revoked or expired"
+          : "API key isn't an ingest key";
+        return new SendOutcome(SendResult.Failed, $"{detail}: {problem}");
       }
 
       // 408 and 429 are 4xx but temporary; every other 4xx means this request itself is wrong.

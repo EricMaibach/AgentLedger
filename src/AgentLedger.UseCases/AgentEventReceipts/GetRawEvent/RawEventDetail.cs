@@ -1,8 +1,11 @@
 ﻿using AgentLedger.Core.AgentEventReceiptAggregate;
+using AgentLedger.Core.ApiKeyAggregate;
+using AgentLedger.UseCases.ApiKeys;
 
 namespace AgentLedger.UseCases.AgentEventReceipts.GetRawEvent;
 
-public sealed record RawEventReceipt(Guid ReceiptId, DateTimeOffset ReceivedAt);
+// SentWith: the key that delivered the receipt and its owner (ADR 0019); none for receipts from before keys.
+public sealed record RawEventReceipt(Guid ReceiptId, DateTimeOffset ReceivedAt, ApiKeySender? SentWith);
 
 public sealed record RawEventDetail(Guid EventId,
                                     string Agent,
@@ -19,7 +22,7 @@ public sealed record RawEventDetail(Guid EventId,
                                     string Payload,
                                     IReadOnlyList<RawEventReceipt> Receipts)
 {
-  public static RawEventDetail From(IReadOnlyList<AgentEventReceipt> receipts)
+  public static RawEventDetail From(IReadOnlyList<AgentEventReceipt> receipts, IReadOnlyDictionary<ApiKeyId, ApiKeySender> senders)
   {
     var original = receipts[0];
 
@@ -37,7 +40,9 @@ public sealed record RawEventDetail(Guid EventId,
       GitWorktree: original.Context.GitWorktree,
       Tags: original.Tags,
       Payload: original.Payload,
-      Receipts: receipts.Select(r => new RawEventReceipt(r.Id.Value, r.ReceivedAt)).ToList()
+      Receipts: receipts
+        .Select(r => new RawEventReceipt(r.Id.Value, r.ReceivedAt, r.ApiKeyId is { } key ? senders.GetValueOrDefault(key) : null))
+        .ToList()
     );
   }
 }

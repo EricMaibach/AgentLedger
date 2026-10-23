@@ -1,7 +1,9 @@
 ﻿using AgentLedger.Core.AgentEventReceiptAggregate;
 using AgentLedger.Core.AgentEventReceiptAggregate.Specifications;
+using AgentLedger.Core.ApiKeyAggregate;
 using AgentLedger.UnitTests.Core.AgentEventReceiptAggregate;
 using AgentLedger.UseCases.AgentEventReceipts.GetRawEvent;
+using AgentLedger.UseCases.ApiKeys;
 using Ardalis.Result;
 using Ardalis.Specification;
 
@@ -12,6 +14,7 @@ public sealed class GetRawEventHandlerHandle
   private static readonly DateTimeOffset T0 = new(2026, 10, 1, 9, 0, 0, TimeSpan.Zero);
 
   private readonly IReadRepository<AgentEventReceipt> _repository = Substitute.For<IReadRepository<AgentEventReceipt>>();
+  private readonly IApiKeyQueryService _apiKeys = Substitute.For<IApiKeyQueryService>();
   private readonly GetRawEventHandler _handler;
   private ISpecification<AgentEventReceipt>? _specUsed;
 
@@ -19,7 +22,9 @@ public sealed class GetRawEventHandlerHandle
   {
     _repository.ListAsync(Arg.Do<ISpecification<AgentEventReceipt>>(spec => _specUsed = spec), Arg.Any<CancellationToken>())
       .Returns(new List<AgentEventReceipt>());
-    _handler = new GetRawEventHandler(_repository);
+    _apiKeys.GetSendersAsync(Arg.Any<IReadOnlyCollection<ApiKeyId>>(), Arg.Any<CancellationToken>())
+      .Returns(new Dictionary<ApiKeyId, ApiKeySender>());
+    _handler = new GetRawEventHandler(_repository, _apiKeys);
   }
 
   // The repository returns these receipts (as if the specification had already been applied).
@@ -75,8 +80,26 @@ public sealed class GetRawEventHandlerHandle
     var result = await _handler.Handle(new GetRawEventQuery(eventId.Value), CancellationToken.None);
 
     result.Value.Receipts.ShouldBe([
-      new RawEventReceipt(original.Id.Value, T0),
-      new RawEventReceipt(resend.Id.Value, T0.AddSeconds(30))]);
+      new RawEventReceipt(original.Id.Value, T0, SentWith: null),
+      new RawEventReceipt(resend.Id.Value, T0.AddSeconds(30), SentWith: null)]);
+  }
+
+  [Fact]
+  public async Task SaysWhoSentEachReceiptAndWithWhichKey()
+  {
+    // Receipts sent with a key are attributed to its owner (ADR 0019); older ones have no sender.
+    var eventId = AgentEventId.From(Guid.CreateVersion7());
+    var keyId = ApiKeyId.From(Guid.CreateVersion7());
+    var withKey = new AgentEventReceiptBuilder().WithEventId(eventId).WithReceivedAt(T0).WithApiKeyId(keyId).Build();
+    var withoutKey = new AgentEventReceiptBuilder().WithEventId(eventId).WithReceivedAt(T0.AddSeconds(1)).Build();
+    RepositoryReturns(withKey, withoutKey);
+    var sender = new ApiKeySender(keyId.Value, "dev container", "eric");
+    _apiKeys.GetSendersAsync(Arg.Is<IReadOnlyCollection<ApiKeyId>>(ids => ids.SequenceEqual(new[] { keyId })), Arg.Any<CancellationToken>())
+      .Returns(new Dictionary<ApiKeyId, ApiKeySender> { [keyId] = sender });
+
+    var result = await _handler.Handle(new GetRawEventQuery(eventId.Value), CancellationToken.None);
+
+    result.Value.Receipts.Select(r => r.SentWith).ShouldBe([sender, null]);
   }
 
   [Fact]

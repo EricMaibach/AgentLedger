@@ -22,5 +22,6 @@ Each file records one significant decision: the context, what was decided, and t
 | [0016](0016-read-api-and-keyset-paging.md) | Read API: keyset paging; query service for read-model lists, Specification for aggregate lookups | Accepted |
 | [0017](0017-api-prefix-for-read-endpoints.md) | JSON read API under `/api`; pages own `/raw/events…`; ingest stays at `/events` | Accepted |
 | [0018](0018-password-login.md) | Password login: own User aggregate, deny by default, time-limited first-run setup page, local-only port by default | Accepted |
+| [0019](0019-api-keys.md) | API keys: personal, one scope each (ingest/read), SHA-256 hashed; ingest always requires one; receipts record the sending key | Accepted |
 
 New ADRs: copy the structure of an existing one (Status, Context, Decision, Consequences) and use the next number.

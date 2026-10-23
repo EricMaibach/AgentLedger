@@ -10,8 +10,13 @@ namespace AgentLedger.FunctionalTests.ApiEndpoints;
 public sealed class ListRawEventsTests(CustomWebApplicationFactory<Program> factory) : IClassFixture<CustomWebApplicationFactory<Program>>, IAsyncLifetime
 {
   private HttpClient _client = default!; // signed in before each test (ADR 0018)
+  private HttpClient _ingest = default!;  // sends events with an ingest key, as the CLI does (ADR 0019)
 
-  public async Task InitializeAsync() => _client = await factory.CreateSignedInBrowserAsync();
+  public async Task InitializeAsync()
+  {
+    _client = await factory.CreateSignedInBrowserAsync();
+    _ingest = await factory.CreateIngestClientAsync();
+  }
 
   public Task DisposeAsync() => Task.CompletedTask;
   private readonly string _session = $"session-{Guid.NewGuid():N}";
@@ -20,7 +25,7 @@ public sealed class ListRawEventsTests(CustomWebApplicationFactory<Program> fact
   {
     var id = eventId ?? Guid.CreateVersion7();
     var envelope = TestEnvelope.Json(eventId: id, eventType: eventType, nativeSessionId: _session);
-    var response = await _client.PostAsync("/events", new StringContent(envelope, Encoding.UTF8, "application/json"));
+    var response = await _ingest.PostAsync("/events", new StringContent(envelope, Encoding.UTF8, "application/json"));
     response.StatusCode.ShouldBe(HttpStatusCode.Created);
     return id;
   }

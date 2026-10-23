@@ -1,0 +1,169 @@
+@page "/settings/api-keys"
+@inject IMediator Mediator
+@inject TimeProvider Clock
+
+@* Personal API keys (ADR 0019): create one (shown once), see and revoke keys. Members see their own keys;
+   admins see everyone's. *@
+
+<PageTitle>API keys · AgentLedger</PageTitle>
+
+<h1>API keys</h1>
+<p class="intro">Ingest keys let the <code>agentledger</code> CLI send events; read keys let scripts read the JSON API.</p>
+
+@if (NewToken is not null)
+{
+  <section class="new-key" role="status" aria-labelledby="new-key-heading">
+    <h2 id="new-key-heading">Your new key</h2>
+    <p>Copy it now: it won't be shown again.</p>
+    <p class="token"><code>@NewToken</code> <CopyButton Text="@NewToken" Label="Copy key" /></p>
+  </section>
+}
+
+<section class="create" aria-labelledby="create-heading">
+  <h2 id="create-heading">Create a key</h2>
+  @if (Errors.Count > 0)
+  {
+    <div class="alert" role="alert">
+      @foreach (var error in Errors)
+      {
+        <p>@error</p>
+      }
+    </div>
+  }
+  <EditForm Model="Input" FormName="create-key" OnSubmit="CreateAsync">
+    <label>
+      Name
+      <InputText @bind-Value="Input.Name" placeholder="e.g. laptop" maxlength="@Core.ApiKeyAggregate.ApiKey.MaxNameLength" required />
+    </label>
+    <label>
+      Scope
+      <InputSelect @bind-Value="Input.Scope">
+        <option value="ingest">Ingest (send events)</option>
+        <option value="read">Read (JSON API)</option>
+      </InputSelect>
+    </label>
+    <label>
+      Expires
+      <InputSelect @bind-Value="Input.ExpiresInDays">
+        <option value="">Never</option>
+        @foreach (var days in UseCases.ApiKeys.CreateApiKey.CreateApiKeyHandler.ExpiryChoicesInDays)
+        {
+          <option value="@days">In @days days</option>
+        }
+      </InputSelect>
+    </label>
+    <button type="submit">Create key</button>
+  </EditForm>
+</section>
+
+<section aria-labelledby="keys-heading">
+  <h2 id="keys-heading">Keys</h2>
+  @if (Keys.Count == 0)
+  {
+    <EmptyState Message="No API keys yet." />
+  }
+  else
+  {
+    <DataTable Caption="API keys, newest first">
+      <Header>
+        <th scope="col">Name</th>
+        <th scope="col">Scope</th>
+        <th scope="col">Owner</th>
+        <th scope="col">Key ID</th>
+        <th scope="col">Issued (UTC)</th>
+        <th scope="col">Last used (UTC)</th>
+        <th scope="col">Status</th>
+        <th scope="col"><span class="visually-hidden">Actions</span></th>
+      </Header>
+      <ChildContent>
+        @foreach (var key in Keys)
+        {
+          var status = ApiKeyStatus.Describe(key, Now);
+          <tr>
+            <td>@key.Name</td>
+            <td><code>@key.Scope.ToLowerInvariant()</code></td>
+            <td>@key.Owner</td>
+            <td><ShortId Value="@key.KeyId.ToString()" Label="key ID" /></td>
+            <td><Timestamp Value="key.IssuedAt" /></td>
+            <td>
+              @if (key.LastUsedAt is { } lastUsed)
+              {
+                <Timestamp Value="lastUsed" />
+              }
+              else
+              {
+                <span class="muted">Never</span>
+              }
+            </td>
+            <td class="@(status.IsActive ? "" : "muted")">@status.Text</td>
+            <td>
+              @if (status.IsActive)
+              {
+                <form method="post" @formname="@($"revoke-{key.KeyId}")" @onsubmit="() => RevokeAsync(key.KeyId)">
+                  <AntiforgeryToken />
+                  <button type="submit" aria-label="@($"Revoke {key.Name}")">Revoke</button>
+                </form>
+              }
+            </td>
+          </tr>
+        }
+      </ChildContent>
+    </DataTable>
+  }
+</section>
+
+@code {
+  [CascadingParameter] public HttpContext HttpContext { get; set; } = default!;
+
+  // Bound from a posted form, and null otherwise (so no initializer, BL0008); OnInitializedAsync fills it in.
+  [SupplyParameterFromForm(FormName = "create-key")] private CreateKeyInput Input { get; set; } = default!;
+
+  private IReadOnlyList<UseCases.ApiKeys.ApiKeyListItem> Keys { get; set; } = [];
+  private List<string> Errors { get; } = [];
+  private string? NewToken { get; set; }
+  private Guid ViewerId { get; set; }
+  private DateTimeOffset Now => Clock.GetUtcNow();
+
+  protected override async Task OnInitializedAsync()
+  {
+    Input ??= new CreateKeyInput();
+    SessionCookie.TryRead(HttpContext.User, out var viewerId, out _);
+    ViewerId = viewerId;
+    await LoadAsync();
+  }
+
+  private async Task CreateAsync()
+  {
+    int? expiresInDays = int.TryParse(Input.ExpiresInDays, out var days) ? days : null;
+    var result = await Mediator.Send(new UseCases.ApiKeys.CreateApiKey.CreateApiKeyCommand(
+      ViewerId, Input.Name ?? "", Input.Scope ?? "", expiresInDays));
+    if (!result.IsSuccess)
+    {
+      Errors.AddRange(result.ValidationErrors.Select(e => e.ErrorMessage).Concat(result.Errors));
+      return;
+    }
+
+    NewToken = result.Value.Token;
+    Input = new CreateKeyInput();
+    await LoadAsync();
+  }
+
+  private async Task RevokeAsync(Guid keyId)
+  {
+    await Mediator.Send(new UseCases.ApiKeys.RevokeApiKey.RevokeApiKeyCommand(ViewerId, keyId));
+    await LoadAsync();
+  }
+
+  private async Task LoadAsync()
+  {
+    var result = await Mediator.Send(new UseCases.ApiKeys.ListApiKeys.ListApiKeysQuery(ViewerId));
+    Keys = result.IsSuccess ? result.Value : [];
+  }
+
+  private sealed class CreateKeyInput
+  {
+    public string? Name { get; set; }
+    public string? Scope { get; set; } = "ingest";
+    public string? ExpiresInDays { get; set; } = "";
+  }
+}

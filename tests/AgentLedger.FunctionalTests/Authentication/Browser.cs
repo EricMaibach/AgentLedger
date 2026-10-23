@@ -17,9 +17,9 @@ internal static partial class Browser
     factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
 
   public static async Task<HttpClient> CreateSignedInBrowserAsync(this CustomWebApplicationFactory<Program> factory,
-    string username = "tester")
+    string username = "tester", bool isAdmin = true)
   {
-    await factory.EnsureUserAsync(username);
+    await factory.EnsureUserAsync(username, isAdmin: isAdmin);
     var browser = factory.CreateBrowser();
     var response = await browser.SignInAsync(username, Password);
     response.StatusCode.ShouldBe(HttpStatusCode.Redirect, "signing in should redirect");
@@ -43,7 +43,8 @@ internal static partial class Browser
     browser.SubmitFormAsync(url, new() { ["Input.Username"] = username, ["Input.Password"] = password });
 
   // Creates the user directly, so tests don't depend on the setup page (which only works once per database).
-  public static async Task EnsureUserAsync(this CustomWebApplicationFactory<Program> factory, string username, string password = Password)
+  public static async Task EnsureUserAsync(this CustomWebApplicationFactory<Program> factory, string username, string password = Password,
+    bool isAdmin = true)
   {
     using var scope = factory.Services.CreateScope();
     var repository = scope.ServiceProvider.GetRequiredService<IRepository<User>>();
@@ -51,18 +52,18 @@ internal static partial class Browser
     {
       var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
       await repository.AddAsync(new User(UserId.From(Guid.CreateVersion7()), Username.From(username), hasher.Hash(password),
-        SecurityStamp.From(Guid.CreateVersion7()), isAdmin: true));
+        SecurityStamp.From(Guid.CreateVersion7()), isAdmin));
     }
   }
 
   public static async Task<HttpResponseMessage> SubmitFormAsync(this HttpClient browser, string url, Dictionary<string, string> fields,
-    string? formAction = null)
+    string? formAction = null, string? formName = null)
   {
     var page = await browser.GetAsync(url);
     page.StatusCode.ShouldBe(HttpStatusCode.OK, $"the form page {url} should load");
     var html = await page.Content.ReadAsStringAsync();
 
-    var values = HiddenFields(html, formAction);
+    var values = HiddenFields(html, formAction, formName);
     foreach (var (name, value) in fields)
     {
       values[name] = value;
@@ -71,15 +72,15 @@ internal static partial class Browser
     return await browser.PostAsync(formAction ?? url, new FormUrlEncodedContent(values));
   }
 
-  // The hidden inputs of the form posting to formAction, or else of the page's own Blazor form (the one
-  // carrying a form name; the header's sign-out form has none).
-  private static Dictionary<string, string> HiddenFields(string html, string? formAction)
+  // The hidden inputs of the form posting to formAction, or of the Blazor form with that name, or else of the
+  // page's first Blazor form (the one carrying a form name; the header's sign-out form has none).
+  private static Dictionary<string, string> HiddenFields(string html, string? formAction, string? formName)
   {
     var form = FormPattern().Matches(html)
-      .FirstOrDefault(f => formAction is null
-        ? f.Value.Contains("name=\"_handler\"", StringComparison.Ordinal)
-        : f.Groups["open"].Value.Contains($"action=\"{formAction}\"", StringComparison.Ordinal))
-      ?? throw new InvalidOperationException($"No form{(formAction is null ? "" : $" posting to {formAction}")} on the page.");
+      .FirstOrDefault(f => formAction is not null
+        ? f.Groups["open"].Value.Contains($"action=\"{formAction}\"", StringComparison.Ordinal)
+        : f.Value.Contains(formName is null ? "name=\"_handler\"" : $"name=\"_handler\" value=\"{formName}\"", StringComparison.Ordinal))
+      ?? throw new InvalidOperationException($"No form {formAction ?? formName ?? "with a form name"} on the page.");
 
     return HiddenInputPattern().Matches(form.Value)
       .Select(input => (Name: Attribute(input.Value, "name"), Value: Attribute(input.Value, "value")))

@@ -48,7 +48,10 @@ agent hook ──stdin──► agentledger CLI ──HTTP──► API ──�
   - GitHub Release → CI → image on GHCR (v0.1.0);
   - the stable ledger runs as a Portainer stack (`deploy/compose.yml`, port 58090);
   - the dev container records every Claude Code session into it.
-- [ ] **Verification:** after some real use, check that every event type from the probe captures arrives, that payloads are byte-for-byte (compare with `.probe/`), and that the spool delivers after the ledger is stopped and restarted. Easiest once the explorer UI exists.
+- [x] **Verification** (2026-10-23), against the probe hook registered for the same 27 Claude Code events:
+  - every probe capture since dogfooding began (2026-09-25) is in the ledger with a byte-identical payload, and the ledger holds no payload the probe didn't capture;
+  - 19 event types confirmed; PermissionRequest hasn't occurred since dogfooding began, and 11 registered events have never fired in this usage;
+  - spool: with the API stopped, events waited in the spool and were delivered when it came back (19 of 19 captured during the outage arrived, byte-for-byte).
 
 **Phase 1 is done when:**
 - every hook event from a real Claude Code session is stored in Postgres, with its payload intact;
@@ -58,17 +61,12 @@ agent hook ──stdin──► agentledger CLI ──HTTP──► API ──�
 
 Each step is designed with the user first (one topic at a time), then built test-first.
 
-1. [x] **Web UI: raw event explorer** (built; released together with step 2a)
+1. [x] **Web UI: raw event explorer** (released in v0.2.0)
    - `/raw/events` and `/raw/events/{eventId}` pages over a read API under `/api` ([ADR 0015](adr/0015-web-ui-and-evidence.md), [ADR 0016](adr/0016-read-api-and-keyset-paging.md), [ADR 0017](adr/0017-api-prefix-for-read-endpoints.md)), design system in `docs/ui.md`.
 2. [ ] **Password login** ([ADR 0018](adr/0018-password-login.md)):
-   - **2a** ← next task: first-run setup page, login, sign-out, change own password, `reset-password` command, deny-by-default authorization, local-only port binding. **Released together with step 1.**
-   - **2b:** user management (`/settings/users`), member and admin roles, temporary passwords changed at first sign-in.
-3. [ ] **API keys:**
-   - a management page for signed-in users;
-   - keys are **scoped**: *ingest* keys only send events; *read* keys only read (MCP server, scripts, CLI viewing if ever added). A leaked ingest key must not expose the ledger, and no key can manage keys.
-   - `POST /events` requires an ingest key;
-   - the CLI gets a way to store its key in the **user** config (never the project file, ADR 0012), and the dev container a non-committed source for it;
-   - enforcement is switched on after the CLI is configured, so the spool bridges the gap.
+   - [x] **2a** (released in v0.2.0): first-run setup page, login, sign-out, change own password, `reset-password` command, deny-by-default authorization, local-only port binding. **Released together with step 1.**
+   - [ ] **2b:** user management (`/settings/users`), member and admin roles, temporary passwords changed at first sign-in. Disabling a user also stops their API keys (ADR 0019).
+3. [ ] **API keys** ([ADR 0019](adr/0019-api-keys.md)) ← next task: personal keys with one scope each (ingest or read), `/settings/api-keys`, ingest always requires a key, receipts record the sending key, CLI `login` and spool-on-401/403.
 4. [ ] **HTTPS**, for reaching a ledger from other machines:
    - the app honors a reverse proxy's forwarded headers (`Secure` cookies, `https` redirects);
    - documented recipes for personal setups: Tailscale (no domain needed), Caddy with your own domain, an existing proxy;
@@ -77,18 +75,20 @@ Each step is designed with the user first (one topic at a time), then built test
    - an **allowlist** of GitHub users or an organization, since GitHub login alone admits any GitHub account;
    - each installation registers its own GitHub OAuth app. Password login remains the default.
 
-## Next task: password login, step 2a
+## Next task: API keys (Phase 2, step 3)
 
-**Goal:** protect the UI and the read API so they can be released. Decisions: [ADR 0018](adr/0018-password-login.md).
+**Goal:** close ingest to anyone without a key, give scripts read access, and record who sent each event. Decisions: [ADR 0019](adr/0019-api-keys.md).
 
 **Steps (test-first):**
-1. ✅ Core: `User` aggregate (`UserId`, case-insensitive `Username`, `PasswordHash`, `SecurityStamp`, admin flag, failed sign-ins, lockout end) and `PasswordRules`: length 15–128, lockout after 5 failures for 15 minutes, a new security stamp on password change.
-2. ✅ Infrastructure: `users` table (unique username) and `IdentityPasswordHasher` (Identity's `PasswordHasher<T>`, rehash of older formats).
-3. ✅ Use cases: `GetSetupStatus` and `SetUpFirstAdmin` (with `SetupWindow`), `SignIn` (lockout, no username enumeration), `ChangePassword`, `ResetPassword`, `CheckSession`.
-4. ✅ Web: cookie authentication (7-day sliding, security stamp re-checked every 5 minutes), deny-by-default fallback policy, `/api` answering 401, login rate limit (10 a minute per IP); pages `/setup`, `/login`, `/account/password`; account menu and sign-out in the header.
-5. ✅ `reset-password <username>` (`dotnet AgentLedger.Web.dll reset-password <username>` in the container).
-6. ✅ Deploy: `AGENTLEDGER_BIND` in `deploy/compose.yml` (default `127.0.0.1`), first-run and reset notes there and in the README.
-7. **Next:** try it in a browser (setup, sign in, change password, sign out), then release the UI and login together. Before redeploying the stable ledger, set `AGENTLEDGER_BIND=172.17.0.1` on the stack (so the dev container still reaches it) and open it at `http://172.17.0.1:58090/` within 10 minutes of the redeploy to create the admin. Then the Phase 1 verification (easier with the explorer).
+1. ✅ CLI: 401/403 keep the event in the spool, with the reason in the log.
+2. ✅ Core: `ApiKey` aggregate (`ApiKeyId`, owner, name, scope, `ApiKeySecretHash`, issued, expiry, last used, revoked) and `ApiKeyToken` (`agl_<scope>_<base62 id>_<base62 secret>`).
+3. ✅ Infrastructure: `api_keys` table; `api_key_id` on `agent_event_receipts` (foreign key, indexed); `ApiKeyQueryService`.
+4. ✅ Use cases: `CreateApiKey`, `ListApiKeys` (own; all for admins), `RevokeApiKey`, `AuthenticateApiKey` (last used at most hourly); ingest records the key; event detail says who sent each receipt.
+5. ✅ Web: `ApiKey` authentication scheme and `Ingest`/`ReadApi`/`AnyApiKey` policies; `GET /api/keys/current`; `/settings/api-keys` and the Settings section; "Sent by" on the event detail page.
+6. ✅ CLI: `agentledger login`, key state in `status`; dev container passes `AGENTLEDGER_API_KEY` from the host (`remoteEnv`).
+7. **Next — rollout:** rerun `.devcontainer/install-agentledger.sh` (new CLI first: older CLIs drop refused events), release v0.3.0 and redeploy, create an ingest key, set `AGENTLEDGER_API_KEY` on the host (or `agentledger login`) and check `agentledger status` shows it accepted.
+
+**Done before (step 2a, released in v0.2.0):** password login ([ADR 0018](adr/0018-password-login.md)).
 
 **Open question:** a URL that matches no page (e.g. `/raw/events/not-a-guid`) returns 404 with an empty body, because it never reaches Blazor. `UseStatusCodePagesWithReExecute("/not-found")` would fix it but also changes `/api` 404s; decide when convenient.
 

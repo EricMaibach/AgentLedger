@@ -1,5 +1,6 @@
 ﻿using AgentLedger.UseCases.AgentEventReceipts.GetRawEvent;
 using AgentLedger.Web.Extensions;
+using AgentLedger.Web.Users;
 using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace AgentLedger.Web.AgentEventReceipts;
@@ -14,6 +15,7 @@ public sealed class GetRawEvent(IMediator mediator)
   public override void Configure()
   {
     Get(GetRawEventRequest.Route);
+    Policies(AuthenticationConfig.ReadApiPolicy); // a signed-in browser or a read key (ADR 0019)
     Summary(s =>
     {
       s.Summary = "Get one raw event with all its receipts";

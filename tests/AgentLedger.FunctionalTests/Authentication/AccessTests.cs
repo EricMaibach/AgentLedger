@@ -1,6 +1,4 @@
 ﻿using System.Net;
-using System.Text;
-using AgentLedger.FunctionalTests.ApiEndpoints;
 
 namespace AgentLedger.FunctionalTests.Authentication;
 
@@ -11,6 +9,7 @@ public sealed class AccessTests(CustomWebApplicationFactory<Program> factory) : 
   [InlineData("/raw/events")]
   [InlineData("/raw/events/0199a0b0-0000-7000-8000-000000000001")]
   [InlineData("/account/password")]
+  [InlineData("/settings/api-keys")]
   [InlineData("/")]
   public async Task PagesSendSignedOutVisitorsToLoginAndBack(string url)
   {
@@ -51,15 +50,6 @@ public sealed class AccessTests(CustomWebApplicationFactory<Program> factory) : 
 
     response.StatusCode.ShouldBe(HttpStatusCode.OK);
     (await response.Content.ReadAsStringAsync()).ShouldContain("<title>Sign in");
-  }
-
-  [Fact]
-  public async Task IngestStaysOpenUntilApiKeys()
-  {
-    var response = await factory.CreateBrowser().PostAsync("/events",
-      new StringContent(TestEnvelope.Json(), Encoding.UTF8, "application/json"));
-
-    response.StatusCode.ShouldBe(HttpStatusCode.Created);
   }
 
   [Fact]

@@ -1,4 +1,5 @@
 ﻿using AgentLedger.Core.AgentEventReceiptAggregate;
+using AgentLedger.Core.ApiKeyAggregate;
 
 namespace AgentLedger.UseCases.AgentEventReceipts.Ingest;
 
@@ -33,7 +34,8 @@ public sealed class IngestEventHandler(IRepository<AgentEventReceipt> repository
           clock.GetUtcNow(),
           context,
           command.Tags,
-          command.Payload);
+          command.Payload,
+          ApiKeyId.From(command.ApiKeyId));
     }
     catch (ArgumentException aex)
     {

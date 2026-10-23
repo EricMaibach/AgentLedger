@@ -1,4 +1,5 @@
 ﻿using AgentLedger.Core.AgentEventReceiptAggregate;
+using AgentLedger.Core.ApiKeyAggregate;
 using AgentLedger.Core.UserAggregate;
 using Vogen;
 
@@ -11,4 +12,6 @@ namespace AgentLedger.Infrastructure.Data.Config;
 [EfCoreConverter<Username>]
 [EfCoreConverter<PasswordHash>]
 [EfCoreConverter<SecurityStamp>]
+[EfCoreConverter<ApiKeyId>]
+[EfCoreConverter<ApiKeySecretHash>]
 internal sealed partial class VogenEfCoreConverters;

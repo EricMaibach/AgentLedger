@@ -1,5 +1,6 @@
 ﻿using System.Text.Json;
 using AgentLedger.Core.AgentEventReceiptAggregate;
+using AgentLedger.Core.ApiKeyAggregate;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 
 namespace AgentLedger.Infrastructure.Data.Config;
@@ -32,6 +33,12 @@ public sealed class AgentEventReceiptConfiguration : IEntityTypeConfiguration<Ag
     builder.Property(e => e.ReceivedAt).IsRequired();
 
     builder.ComplexProperty(e => e.Context);
+
+    // The key that delivered this receipt (ADR 0019). Keys are never deleted, so the reference always resolves.
+    // Nullable, so the generated converter is applied directly (HasVogenConversion only takes non-null types).
+    builder.Property(e => e.ApiKeyId).HasConversion<VogenEfCoreConverters.ApiKeyIdEfCoreValueConverter>();
+    builder.HasOne<ApiKey>().WithMany().HasForeignKey(e => e.ApiKeyId).OnDelete(DeleteBehavior.Restrict);
+    builder.HasIndex(e => e.ApiKeyId); // everything sent with a key, e.g. after it leaked
 
     builder.Property(e => e.Tags)
       .HasColumnType("jsonb")

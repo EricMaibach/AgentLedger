@@ -1,4 +1,5 @@
 ﻿using AgentLedger.Core.AgentEventReceiptAggregate;
+using AgentLedger.Core.ApiKeyAggregate;
 using AgentLedger.UseCases.AgentEventReceipts.Ingest;
 using Ardalis.Result;
 using Microsoft.Extensions.Time.Testing;
@@ -9,6 +10,7 @@ namespace AgentLedger.UnitTests.UseCases.AgentEventReceipts;
 public sealed class IngestEventHandlerHandle
 {
   private static readonly DateTimeOffset Now = new(2026, 9, 24, 9, 30, 0, TimeSpan.Zero);
+  private static readonly Guid SenderKeyId = Guid.CreateVersion7();
 
   private readonly IRepository<AgentEventReceipt> _repository = Substitute.For<IRepository<AgentEventReceipt>>();
   private readonly FakeTimeProvider _clock = new(Now);
@@ -37,7 +39,8 @@ public sealed class IngestEventHandlerHandle
     GitBranch: "main",
     GitWorktree: null,
     Tags: new Dictionary<string, string> { ["story"] = "123" },
-    Payload: """{"session_id":"3829bce8","hook_event_name":"PreToolUse"}""");
+    Payload: """{"session_id":"3829bce8","hook_event_name":"PreToolUse"}""",
+    ApiKeyId: SenderKeyId);
 
   [Fact]
   public async Task ReturnsCreatedWithTheNewReceiptId()
@@ -47,6 +50,14 @@ public sealed class IngestEventHandlerHandle
     result.Status.ShouldBe(ResultStatus.Created);
     _saved.ShouldNotBeNull();
     result.Value.ShouldBe(_saved.Id);
+  }
+
+  [Fact]
+  public async Task RecordsTheKeyTheEventWasSentWith()
+  {
+    await _handler.Handle(ValidCommand(), CancellationToken.None);
+
+    _saved.ShouldNotBeNull().ApiKeyId.ShouldBe(ApiKeyId.From(SenderKeyId));
   }
 
   [Fact]

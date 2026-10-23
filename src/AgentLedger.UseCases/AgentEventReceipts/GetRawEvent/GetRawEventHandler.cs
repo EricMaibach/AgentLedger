@@ -1,9 +1,11 @@
 ﻿using AgentLedger.Core.AgentEventReceiptAggregate;
 using AgentLedger.Core.AgentEventReceiptAggregate.Specifications;
+using AgentLedger.Core.ApiKeyAggregate;
+using AgentLedger.UseCases.ApiKeys;
 
 namespace AgentLedger.UseCases.AgentEventReceipts.GetRawEvent;
 
-public sealed class GetRawEventHandler(IReadRepository<AgentEventReceipt> repository) : IQueryHandler<GetRawEventQuery, Result<RawEventDetail>>
+public sealed class GetRawEventHandler(IReadRepository<AgentEventReceipt> repository, IApiKeyQueryService apiKeys) : IQueryHandler<GetRawEventQuery, Result<RawEventDetail>>
 {
   public async ValueTask<Result<RawEventDetail>> Handle(GetRawEventQuery query, CancellationToken cancellationToken)
   {
@@ -19,6 +21,11 @@ public sealed class GetRawEventHandler(IReadRepository<AgentEventReceipt> reposi
       return Result.NotFound();
     }
 
-    return Result.Success(RawEventDetail.From(receipts));
+    var keyIds = receipts.Select(r => r.ApiKeyId).OfType<ApiKeyId>().Distinct().ToList();
+    var senders = keyIds.Count == 0
+      ? new Dictionary<ApiKeyId, ApiKeySender>()
+      : await apiKeys.GetSendersAsync(keyIds, cancellationToken);
+
+    return Result.Success(RawEventDetail.From(receipts, senders));
   }
 }

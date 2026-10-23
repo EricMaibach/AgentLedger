@@ -11,14 +11,19 @@ public sealed class GetRawEventTests(CustomWebApplicationFactory<Program> factor
   private const string OddlyFormattedPayload = "{ \"z\": 1,\n  \"a\": [true, null],  \"a\": \"dup\" }";
 
   private HttpClient _client = default!; // signed in before each test (ADR 0018)
+  private HttpClient _ingest = default!;  // sends events with an ingest key, as the CLI does (ADR 0019)
 
-  public async Task InitializeAsync() => _client = await factory.CreateSignedInBrowserAsync();
+  public async Task InitializeAsync()
+  {
+    _client = await factory.CreateSignedInBrowserAsync();
+    _ingest = await factory.CreateIngestClientAsync();
+  }
 
   public Task DisposeAsync() => Task.CompletedTask;
 
   private async Task SendAsync(string envelope)
   {
-    var response = await _client.PostAsync("/events", new StringContent(envelope, Encoding.UTF8, "application/json"));
+    var response = await _ingest.PostAsync("/events", new StringContent(envelope, Encoding.UTF8, "application/json"));
     response.StatusCode.ShouldBe(HttpStatusCode.Created);
   }
 

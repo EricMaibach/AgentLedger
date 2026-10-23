@@ -2,17 +2,22 @@
 using System.Text;
 using System.Text.Json;
 using AgentLedger.Core.AgentEventReceiptAggregate;
+using AgentLedger.FunctionalTests.Authentication;
 using AgentLedger.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace AgentLedger.FunctionalTests.ApiEndpoints;
 
-public sealed class IngestEventTests(CustomWebApplicationFactory<Program> factory) : IClassFixture<CustomWebApplicationFactory<Program>>
+public sealed class IngestEventTests(CustomWebApplicationFactory<Program> factory) : IClassFixture<CustomWebApplicationFactory<Program>>, IAsyncLifetime
 {
   // Whitespace, key order and a duplicate key: must reach the database byte-for-byte (ADR 0009).
   private const string OddlyFormattedPayload = "{ \"z\": 1,\n  \"a\": [true, null],  \"a\": \"duplicate key\" }";
 
-  private readonly HttpClient _client = factory.CreateClient();
+  private HttpClient _client = default!; // has an ingest key, as the CLI does (ADR 0019)
+
+  public async Task InitializeAsync() => _client = await factory.CreateIngestClientAsync();
+
+  public Task DisposeAsync() => Task.CompletedTask;
 
   [Fact]
   public async Task StoresAValidEnvelopeWithItsPayloadExactlyAsSent()

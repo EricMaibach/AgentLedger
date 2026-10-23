@@ -1,4 +1,5 @@
 ﻿using AgentLedger.Core.AgentEventReceiptAggregate;
+using AgentLedger.Core.ApiKeyAggregate;
 using AgentLedger.Core.UserAggregate;
 
 namespace AgentLedger.Infrastructure.Data;
@@ -12,6 +13,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
 
   public DbSet<AgentEventReceipt> AgentEventReceipts => Set<AgentEventReceipt>();
   public DbSet<User> Users => Set<User>();
+  public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
 
   protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder) =>
     configurationBuilder.Conventions.Add(_ => new AuditTimestampsConvention());

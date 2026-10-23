@@ -27,7 +27,7 @@ internal static class StatusReport
     }
   }
 
-  public static string Render(CliSettings settings, ApiCheck api, SpoolSize spool, string logFile, IReadOnlyList<string> recentLog,
+  public static string Render(CliSettings settings, ApiCheck api, Login.ApiKeyCheck? key, SpoolSize spool, string logFile, IReadOnlyList<string> recentLog,
     IReadOnlyList<string> installedScopes)
   {
     var report = new StringBuilder();
@@ -36,6 +36,11 @@ internal static class StatusReport
     Row(report, "API", settings.Url.Value.ToString(), settings.Url.Source);
     Row(report, "", api.Detail, "");
     Row(report, "API key", settings.ApiKey.Value is null ? "(none)" : "(set)", settings.ApiKey.Source); // never the key itself
+    if (key is not null)
+    {
+      Row(report, "", key.Detail, "");
+    }
+
     Row(report, "Enabled", settings.Enabled.Value ? "yes" : "no (this project opted out)", settings.Enabled.Source);
     Row(report, "Timeout", $"{settings.Timeout.Value.TotalMilliseconds:0} ms", settings.Timeout.Source);
     Row(report, "Spool", settings.SpoolDirectory.Value, settings.SpoolDirectory.Source);
@@ -46,6 +51,19 @@ internal static class StatusReport
       : $"claude-code: {string.Join(", ", installedScopes)}", "");
 
     var warnings = settings.Warnings.ToList();
+    if (settings.ApiKey.Value is null)
+    {
+      warnings.Add("No API key: the ledger refuses events without an ingest key, so they wait in the spool. Run: agentledger login");
+    }
+    else if (key?.Result == Login.ApiKeyCheckResult.Rejected)
+    {
+      warnings.Add("The ledger rejected the API key, so events wait in the spool. Create a new key and run: agentledger login");
+    }
+    else if (key is { Result: Login.ApiKeyCheckResult.Accepted, Scope: not "ingest" })
+    {
+      warnings.Add("The API key isn't an ingest key, so the ledger refuses events. Create an ingest key and run: agentledger login");
+    }
+
     if (installedScopes.Count > 1)
     {
       warnings.Add($"Hooks are installed in {installedScopes.Count} scopes, so every event is recorded twice. Uninstall all but one.");

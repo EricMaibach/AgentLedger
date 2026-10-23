@@ -24,11 +24,14 @@ A header with the product name and the ledger's version (from `/status`, e.g. `0
 | *(future)* Sessions, Tool calls, Tags, Cost | projection pages; the main pages once they exist | 4 |
 | **Raw events** | `/raw/events`, `/raw/events/{eventId}` | 2 (v1) |
 | *(future)* Ingestion health | arrivals, duplicate rate, unknown event types | later |
-| *(future)* Settings | API keys, users | 2 |
+| **Settings** | `/settings/api-keys`; *(future)* users | 2 |
 
-In v1 only "Raw events" exists. The home page `/` redirects to it until projection pages exist.
+"Raw events" and "Settings" exist today. The home page `/` redirects to "Raw events" until projection pages exist.
 
 The header also holds the account menu when signed in: the username, "Change password" and a "Sign out" button (a POST form, [ADR 0018](adr/0018-password-login.md)). Signed out, the header shows only the product name and version, and there is no section navigation.
+
+### Settings pages
+`/settings/api-keys` ([ADR 0019](adr/0019-api-keys.md)) lists keys in a **DataTable** (members their own, admins everyone's), with a create form above it. A new key is shown **once**, in a status panel with a **CopyButton**; it never appears again. Each active key's row has a "Revoke" button: a POST form per row, with its own form name (`revoke-<keyId>`). Statuses come from `ApiKeyStatus` (Active, "Expires in N days" within 14 days, Expired, "Revoked by …").
 
 ### Account pages
 `/login`, `/setup` (first run only) and `/account/password` are each a single **FormPanel**. Every page requires sign-in unless it is explicitly marked `@attribute [AllowAnonymous]` (deny by default); only the login, setup and not-found pages are.

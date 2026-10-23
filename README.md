@@ -51,11 +51,12 @@ Requirements: Docker and VS Code with the Dev Containers extension.
    dotnet run --project src/AgentLedger.Web --launch-profile http
    curl http://localhost:57678/status
    ```
-   In Development, migrations are applied on startup. Open `http://localhost:57678/` in a browser: on a database with no users it asks you to create the admin account (within 10 minutes of starting the app). After signing in, the web UI is at `/raw/events` and API docs are at `/scalar`.
+   In Development, migrations are applied on startup. Open `http://localhost:57678/` in a browser: on a database with no users it asks you to create the admin account (within 10 minutes of starting the app). After signing in, the web UI is at `/raw/events`, API keys are under Settings, and API docs are at `/scalar`.
+4. The dev container sends its own agent activity to the stable ledger (dogfooding). Give it a key by setting `AGENTLEDGER_API_KEY` on the machine running VS Code before opening the container (`devcontainer.json` passes it in), or run `agentledger login` inside the container (lost on rebuild).
 
 ## Running a ledger
 
-`deploy/compose.yml` runs the released image with its own Postgres, for example as a Portainer stack. Its comments list the variables, the first-run setup, and how to reset a forgotten password. By default the ledger is reachable only from the machine it runs on; see [ADR 0018](docs/adr/0018-password-login.md) before exposing it on a network.
+`deploy/compose.yml` runs the released image with its own Postgres, for example as a Portainer stack. Its comments list the variables, the first-run setup, and how to reset a forgotten password. By default the ledger is reachable only from the machine it runs on; see [ADR 0018](docs/adr/0018-password-login.md) before exposing it on a network. After creating the admin, create an ingest key under Settings → API keys for each machine that sends events.
 
 ## Recording agent activity: the `agentledger` CLI
 
@@ -64,9 +65,11 @@ Agents run a small CLI from their hooks. It's published as a single Native AOT b
 ```bash
 dotnet publish src/AgentLedger.Cli -c Release -r linux-x64 -o ~/.local/bin   # a folder on your PATH
 agentledger install claude-code          # hooks for every Claude Code event, in all your projects
-agentledger status                       # configuration, API reachability, waiting events, recent log
+agentledger login                        # store your ingest key (create it in the web UI under Settings → API keys)
+agentledger status                       # configuration, API reachability, key state, waiting events, recent log
 ```
 
+- **An ingest key is required** to send events ([ADR 0019](docs/adr/0019-api-keys.md)). Keys are personal: create your own in the web UI. `login` checks it with the ledger and saves it in your user config file; `AGENTLEDGER_API_KEY` works too. Without a valid key, events wait in the spool.
 - **`hook <agent>`** is what the installed hooks call. It's silent and always exits 0, so it never disrupts the agent. If the API is unavailable, events wait in a local spool and are sent later, or right away with `agentledger flush`.
 - **Pointing at another API:** set `AGENTLEDGER_URL`, or add `{ "url": "..." }` to `.agentledger.json` in a project.
 - **Opting a project out:** add `{ "enabled": false }` to that project's `.agentledger.json`.

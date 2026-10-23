@@ -1,7 +1,9 @@
-﻿using System.Text.Json;
+﻿using System.Security.Claims;
+using System.Text.Json;
 using AgentLedger.Core.AgentEventReceiptAggregate;
 using AgentLedger.UseCases.AgentEventReceipts.Ingest;
 using AgentLedger.Web.Extensions;
+using AgentLedger.Web.Users;
 using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace AgentLedger.Web.AgentEventReceipts;
@@ -16,7 +18,7 @@ public sealed class Ingest(IMediator mediator)
   public override void Configure()
   {
     Post(IngestEventRequest.Route);
-    AllowAnonymous(); // until API keys exist (ADR 0002)
+    Policies(AuthenticationConfig.IngestPolicy); // always an ingest key (ADR 0019)
     Summary(s =>
     {
       s.Summary = "Record a captured agent event";
@@ -50,7 +52,8 @@ public sealed class Ingest(IMediator mediator)
       request.GitBranch,
       request.GitWorktree,
       request.Tags ?? [],
-      RawPayload(request.Payload));
+      RawPayload(request.Payload),
+      SendingKeyId());
 
     var result = await mediator.Send(command, cancellationToken);
 
@@ -58,6 +61,9 @@ public sealed class Ingest(IMediator mediator)
   }
 
   private static IngestEventResponse ToResponse(ReceiptId id) => new(id.Value);
+
+  // The authenticated key this event arrived with; the ingest policy guarantees there is one.
+  private Guid SendingKeyId() => Guid.Parse(User.FindFirstValue(ApiKeyAuthenticationHandler.KeyIdClaim)!);
 
   // The payload's exact original text. A missing or null payload becomes empty, which the domain rejects.
   private static string RawPayload(JsonElement payload) =>

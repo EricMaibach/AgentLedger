@@ -1,5 +1,6 @@
 ﻿using AgentLedger.UseCases.AgentEventReceipts.ListRawEvents;
 using AgentLedger.Web.Extensions;
+using AgentLedger.Web.Users;
 using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace AgentLedger.Web.AgentEventReceipts;
@@ -25,6 +26,7 @@ public sealed class CountRawEventTypes(IMediator mediator)
   public override void Configure()
   {
     Get(CountRawEventTypesRequest.Route);
+    Policies(AuthenticationConfig.ReadApiPolicy); // a signed-in browser or a read key (ADR 0019)
     Summary(s =>
     {
       s.Summary = "Count events by type";

@@ -34,6 +34,10 @@ namespace AgentLedger.Infrastructure.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("agent");
 
+                    b.Property<Guid?>("ApiKeyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("api_key_id");
+
                     b.Property<DateTimeOffset>("CapturedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("captured_at");
@@ -108,6 +112,9 @@ namespace AgentLedger.Infrastructure.Data.Migrations
                     b.HasKey("Id")
                         .HasName("pk_agent_event_receipts");
 
+                    b.HasIndex("ApiKeyId")
+                        .HasDatabaseName("ix_agent_event_receipts_api_key_id");
+
                     b.HasIndex("CapturedAt")
                         .HasDatabaseName("ix_agent_event_receipts_captured_at");
 
@@ -129,6 +136,73 @@ namespace AgentLedger.Infrastructure.Data.Migrations
                         .HasDatabaseName("ix_agent_event_receipts_received_at_id");
 
                     b.ToTable("agent_event_receipts", (string)null);
+                });
+
+            modelBuilder.Entity("AgentLedger.Core.ApiKeyAggregate.ApiKey", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset?>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<DateTimeOffset>("IssuedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("issued_at");
+
+                    b.Property<DateTimeOffset?>("LastUsedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_used_at");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("name");
+
+                    b.Property<Guid>("OwnerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("owner_id");
+
+                    b.Property<DateTimeOffset?>("RevokedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("revoked_at");
+
+                    b.Property<Guid?>("RevokedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("revoked_by");
+
+                    b.Property<string>("Scope")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("scope");
+
+                    b.Property<string>("SecretHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("secret_hash");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_api_keys");
+
+                    b.HasIndex("OwnerId")
+                        .HasDatabaseName("ix_api_keys_owner_id");
+
+                    b.HasIndex("RevokedBy")
+                        .HasDatabaseName("ix_api_keys_revoked_by");
+
+                    b.ToTable("api_keys", (string)null);
                 });
 
             modelBuilder.Entity("AgentLedger.Core.UserAggregate.User", b =>
@@ -180,6 +254,31 @@ namespace AgentLedger.Infrastructure.Data.Migrations
                         .HasDatabaseName("ix_users_username");
 
                     b.ToTable("users", (string)null);
+                });
+
+            modelBuilder.Entity("AgentLedger.Core.AgentEventReceiptAggregate.AgentEventReceipt", b =>
+                {
+                    b.HasOne("AgentLedger.Core.ApiKeyAggregate.ApiKey", null)
+                        .WithMany()
+                        .HasForeignKey("ApiKeyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_agent_event_receipts_api_keys_api_key_id");
+                });
+
+            modelBuilder.Entity("AgentLedger.Core.ApiKeyAggregate.ApiKey", b =>
+                {
+                    b.HasOne("AgentLedger.Core.UserAggregate.User", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_api_keys_users_owner_id");
+
+                    b.HasOne("AgentLedger.Core.UserAggregate.User", null)
+                        .WithMany()
+                        .HasForeignKey("RevokedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_api_keys_users_revoked_by");
                 });
 #pragma warning restore 612, 618
         }
