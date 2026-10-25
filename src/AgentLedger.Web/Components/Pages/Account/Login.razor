@@ -8,19 +8,23 @@
 
 <PageTitle>Sign in · AgentLedger</PageTitle>
 
-<FormPanel Title="Sign in" Errors="Errors">
-  <EditForm Model="Input" FormName="login" OnSubmit="SignInAsync">
-    <label>
-      Username
-      <InputText @bind-Value="Input.Username" autocomplete="username" required />
-    </label>
-    <label>
-      Password
-      <InputText type="password" @bind-Value="Input.Password" autocomplete="current-password" required />
-    </label>
-    <button type="submit">Sign in</button>
-  </EditForm>
-</FormPanel>
+@* Nothing renders when the page is redirecting, so no form is discarded mid-render (see Setup.razor). *@
+@if (!Leaving)
+{
+  <FormPanel Title="Sign in" Errors="Errors">
+    <EditForm Model="Input" FormName="login" OnSubmit="SignInAsync">
+      <label>
+        Username
+        <InputText @bind-Value="Input.Username" autocomplete="username" required />
+      </label>
+      <label>
+        Password
+        <InputText type="password" @bind-Value="Input.Password" autocomplete="current-password" required />
+      </label>
+      <button type="submit">Sign in</button>
+    </EditForm>
+  </FormPanel>
+}
 
 @code {
   [CascadingParameter] public HttpContext HttpContext { get; set; } = default!;
@@ -29,6 +33,7 @@
   [SupplyParameterFromForm] private LoginInput Input { get; set; } = default!;
 
   private List<string> Errors { get; } = [];
+  private bool Leaving { get; set; }
 
   protected override async Task OnInitializedAsync()
   {
@@ -41,6 +46,7 @@
 
     if (HttpContext.User.Identity?.IsAuthenticated == true)
     {
+      Leaving = true;
       Navigation.NavigateTo(LocalReturnUrl.OrDefault(ReturnUrl));
       return;
     }
@@ -48,6 +54,7 @@
     var setup = await Mediator.Send(new UseCases.Users.GetSetupStatus.GetSetupStatusQuery());
     if (setup.Value != SetupStatus.Done)
     {
+      Leaving = true;
       Navigation.NavigateTo("/setup");
     }
   }
@@ -62,6 +69,7 @@
     }
 
     await SessionCookie.SignInAsync(HttpContext, result.Value);
+    Leaving = true;
     Navigation.NavigateTo(LocalReturnUrl.OrDefault(ReturnUrl));
   }
 

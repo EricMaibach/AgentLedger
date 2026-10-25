@@ -8,27 +8,33 @@
 
 <PageTitle>Set up · AgentLedger</PageTitle>
 
-@if (Status == SetupStatus.TimedOut)
+@* Nothing renders when the page is leaving (setup done: not found; just set up: redirecting). Rendering the form
+   while NotFound() or NavigateTo() replace the page intermittently threw "The renderer does not have a component
+   with ID …" (a 500) when the discarded form was looked up. *@
+@if (!Leaving)
 {
-  <FormPanel Title="Setup timed out"
-             Intro="For security, the first admin can only be created in the first 10 minutes after the ledger starts. Restart the container (or the app) and open this page again." />
-}
-else
-{
-  <FormPanel Title="Welcome to AgentLedger" Errors="Errors"
-             Intro="Create the first admin account. You'll use it to sign in to this ledger.">
-    <EditForm Model="Input" FormName="setup" OnSubmit="SetUpAsync">
-      <label>
-        Username
-        <InputText @bind-Value="Input.Username" autocomplete="username" required />
-      </label>
-      <label>
-        Password (at least @Core.UserAggregate.PasswordRules.MinLength characters; a few unrelated words work well)
-        <InputText type="password" @bind-Value="Input.Password" autocomplete="new-password" required />
-      </label>
-      <button type="submit">Create admin</button>
-    </EditForm>
-  </FormPanel>
+  if (Status == SetupStatus.TimedOut)
+  {
+    <FormPanel Title="Setup timed out"
+               Intro="For security, the first admin can only be created in the first 10 minutes after the ledger starts. Restart the container (or the app) and open this page again." />
+  }
+  else if (Status == SetupStatus.Required)
+  {
+    <FormPanel Title="Welcome to AgentLedger" Errors="Errors"
+               Intro="Create the first admin account. You'll use it to sign in to this ledger.">
+      <EditForm Model="Input" FormName="setup" OnSubmit="SetUpAsync">
+        <label>
+          Username
+          <InputText @bind-Value="Input.Username" autocomplete="username" required />
+        </label>
+        <label>
+          Password (at least @Core.UserAggregate.PasswordRules.MinLength characters; a few unrelated words work well)
+          <InputText type="password" @bind-Value="Input.Password" autocomplete="new-password" required />
+        </label>
+        <button type="submit">Create admin</button>
+      </EditForm>
+    </FormPanel>
+  }
 }
 
 @code {
@@ -37,6 +43,7 @@ else
   [SupplyParameterFromForm] private SetupInput Input { get; set; } = default!;
 
   private SetupStatus? Status { get; set; }
+  private bool Leaving { get; set; }
   private List<string> Errors { get; } = [];
 
   protected override async Task OnInitializedAsync()
@@ -46,6 +53,7 @@ else
     Status = (await Mediator.Send(new UseCases.Users.GetSetupStatus.GetSetupStatusQuery())).Value;
     if (Status == SetupStatus.Done)
     {
+      Leaving = true;
       Navigation.NotFound();
     }
   }
@@ -65,6 +73,7 @@ else
     }
 
     await SessionCookie.SignInAsync(HttpContext, result.Value);
+    Leaving = true;
     Navigation.NavigateTo(LocalReturnUrl.Default);
   }
 

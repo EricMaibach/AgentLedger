@@ -91,8 +91,6 @@ Each step is designed with the user first (one topic at a time), then built test
 
 API keys released in v0.3.0 ([ADR 0019](adr/0019-api-keys.md)); the dev container sends with its own ingest key, and new receipts record it. Remaining Phase 2 work, when needed: 2b (user management), HTTPS (step 4), GitHub login (step 5).
 
-**Known flaky test:** `SetupTests.CreatesTheFirstAdminOnceAndThenDisappears` failed once in a full `dotnet test` run (2026-10-25) and passed in 5 full runs and 3 single runs afterwards; the failure message wasn't kept. When it fails again, keep the full output and find the cause rather than retrying.
-
 **Open question:** a URL that matches no page (e.g. `/raw/events/not-a-guid`) returns 404 with an empty body, because it never reaches Blazor. `UseStatusCodePagesWithReExecute("/not-found")` would fix it but also changes `/api` 404s; decide when convenient.
 
 **Deferred from the EF mapping task:**
