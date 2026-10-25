@@ -1,0 +1,162 @@
+@page "/raw/transcripts"
+@inject IMediator Mediator
+
+@* The raw transcripts list (ADR 0020, docs/ui.md): built like the raw events list, filters and paging in the URL,
+   data from the same query as the JSON API. Raw data only: the line type is the line's own field. *@
+
+<PageTitle>Raw transcripts · AgentLedger</PageTitle>
+
+<h1>Raw transcripts</h1>
+
+<FilterBar Action="@RawTranscriptsLink.Path" ClearHref="@RawTranscriptsLink.Path" ActiveCount="ActiveFilterCount">
+  <label>
+    Agent
+    <select name="agent">
+      <option value="">Any</option>
+      @foreach (var (wireName, displayName) in AgentDisplayName.All)
+      {
+        <option value="@wireName" selected="@(wireName == Agent)">@displayName</option>
+      }
+    </select>
+  </label>
+  <label>Line type <input name="lineType" value="@LineType" placeholder="e.g. assistant" /></label>
+  <label>Session <input name="session" value="@Session" /></label>
+  <label>File <input name="file" value="@File" placeholder="main or subagents/agent-…" /></label>
+  <label>Received from (UTC) <input type="datetime-local" name="from" value="@FromInput" /></label>
+  <label>Received before (UTC) <input type="datetime-local" name="to" value="@ToInput" /></label>
+  @if (Limit is { Length: > 0 })
+  {
+    <input type="hidden" name="limit" value="@Limit" />
+  }
+</FilterBar>
+
+@if (Errors.Count > 0)
+{
+  <div class="alert" role="alert">
+    <p>These filters can't be used:</p>
+    <ul>
+      @foreach (var error in Errors)
+      {
+        <li>@error</li>
+      }
+    </ul>
+  </div>
+}
+else if (Page is not null)
+{
+  @if (Blank(Session) is { } session)
+  {
+    <p class="session-links"><a href="@RawEventsLink.To(new RawEventsQueryString(Session: session))">This session's events</a></p>
+  }
+
+  @if (Page.Items.Count == 0)
+  {
+    <EmptyState Message="No transcript lines match these filters.">
+      <a href="@RawTranscriptsLink.Path">Clear filters</a>
+    </EmptyState>
+  }
+  else
+  {
+    <DataTable Caption="Transcript lines, newest first">
+      <Header>
+        <th scope="col">Received (UTC)</th>
+        <th scope="col">Agent</th>
+        <th scope="col">Line type</th>
+        <th scope="col">Session</th>
+        <th scope="col">File</th>
+        <th scope="col" class="number">Byte offset</th>
+        <th scope="col">Preview</th>
+      </Header>
+      <ChildContent>
+        @foreach (var item in Page.Items)
+        {
+          <tr>
+            <td><a href="@RawTranscriptsLink.ToLine(item.LineId)"><Timestamp Value="item.ReceivedAt" /></a></td>
+            <td><AgentName WireName="@AgentWireName.FromAgentKindName(item.Agent)" /></td>
+            <td>
+              @if (item.LineType is { } lineType)
+              {
+                <EventTypeBadge Value="@lineType" />
+              }
+            </td>
+            <td><ShortId Value="@item.NativeSessionId" Href="@RawTranscriptsLink.To(Query with { Session = item.NativeSessionId, After = null })" Label="session ID" /></td>
+            <td>@(item.SubagentId is { } subagent ? $"subagent {subagent}" : "main")</td>
+            <td class="number">@item.ByteOffset</td>
+            <td><code class="preview">@item.Preview</code></td>
+          </tr>
+        }
+      </ChildContent>
+    </DataTable>
+
+    <Pager NewerHref="@(After is { Length: > 0 } ? RawTranscriptsLink.To(Query with { After = null }) : null)"
+           OlderHref="@(Page.Next is { } next ? RawTranscriptsLink.To(Query with { After = TranscriptCursorCodec.Encode(next) }) : null)" />
+  }
+}
+
+@code {
+  [SupplyParameterFromQuery] public string? Agent { get; set; }
+  [SupplyParameterFromQuery(Name = "lineType")] public string? LineType { get; set; }
+  [SupplyParameterFromQuery] public string? Session { get; set; }
+  [SupplyParameterFromQuery] public string? File { get; set; }
+  [SupplyParameterFromQuery] public string? From { get; set; }
+  [SupplyParameterFromQuery] public string? To { get; set; }
+  [SupplyParameterFromQuery] public string? Limit { get; set; }
+  [SupplyParameterFromQuery] public string? After { get; set; }
+
+  private UseCases.Transcripts.TranscriptLinePage? Page { get; set; }
+  private List<string> Errors { get; } = [];
+
+  // The current view's parameters, for building links that keep the filters.
+  private RawTranscriptsQueryString Query => new(
+    Blank(Agent), Blank(LineType), Blank(Session), Blank(File), Blank(From), Blank(To),
+    int.TryParse(Limit, out var limit) ? limit : Constants.DEFAULT_PAGE_SIZE, Blank(After));
+
+  private string? FromInput => DateTimeInput.TryParse(From, out var from) && from is { } value ? DateTimeInput.Format(value) : From;
+  private string? ToInput => DateTimeInput.TryParse(To, out var to) && to is { } value ? DateTimeInput.Format(value) : To;
+
+  private int ActiveFilterCount => new[] { Agent, LineType, Session, File, From, To }.Count(value => !string.IsNullOrWhiteSpace(value));
+
+  protected override async Task OnInitializedAsync()
+  {
+    if (!DateTimeInput.TryParse(From, out var from))
+    {
+      Errors.Add($"Received from: '{From}' is not a date and time.");
+    }
+
+    if (!DateTimeInput.TryParse(To, out var to))
+    {
+      Errors.Add($"Received before: '{To}' is not a date and time.");
+    }
+
+    var limit = Constants.DEFAULT_PAGE_SIZE;
+    if (Blank(Limit) is { } limitText && !int.TryParse(limitText, out limit))
+    {
+      Errors.Add($"Limit: '{Limit}' is not a number.");
+    }
+
+    UseCases.Transcripts.TranscriptLineCursor? after = null;
+    if (Blank(After) is { } cursor && !TranscriptCursorCodec.TryDecode(cursor, out after))
+    {
+      Errors.Add("This page link isn't valid any more. Start again from the newest lines.");
+    }
+
+    var filter = RawTranscriptFilterParameters.ToFilter(Blank(Agent), Blank(LineType), Blank(Session), Blank(File), from, to);
+    Errors.AddRange(filter.ValidationErrors.Select(error => error.ErrorMessage));
+    if (Errors.Count > 0)
+    {
+      return;
+    }
+
+    var result = await Mediator.Send(new UseCases.Transcripts.ListTranscriptLines.ListTranscriptLinesQuery(filter.Value, after, limit));
+    if (!result.IsSuccess)
+    {
+      Errors.AddRange(result.ValidationErrors.Select(error => error.ErrorMessage));
+      return;
+    }
+
+    Page = result.Value;
+  }
+
+  // An empty form field arrives as "": treat it as "not set".
+  private static string? Blank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+}

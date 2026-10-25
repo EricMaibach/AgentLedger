@@ -24,22 +24,21 @@ internal static class TranscriptSources
 }
 
 /// <summary>
-/// Claude Code (verified from real transcripts, 2026-10-25): <c>transcript_path</c> is the session's file;
-/// a subagent's is <c>&lt;session&gt;/subagents/agent-&lt;id&gt;.jsonl</c> next to it, named by
-/// <c>agent_transcript_path</c> on SubagentStop, or found from <c>agent_id</c> in hooks fired inside it.
+/// Claude Code (verified from real transcripts, 2026-10-25): <c>transcript_path</c> is the session's file, and its
+/// subagents' files are <c>&lt;session&gt;/subagents/agent-&lt;id&gt;.jsonl</c> next to it. Every hook returns all of
+/// them: a subagent's last line can be written after its own last hook has read the file (ADR 0020, revised).
 /// </summary>
 internal sealed partial class ClaudeCodeTranscriptSource : ITranscriptSource
 {
   public IReadOnlyList<TranscriptFileRef> FilesFor(string payload)
   {
-    string? session, transcript, subagentTranscript, agentId;
+    string? session, transcript, namedSubagent;
     try
     {
       using var json = JsonDocument.Parse(payload);
       session = Text(json.RootElement, "session_id");
       transcript = Text(json.RootElement, "transcript_path");
-      subagentTranscript = Text(json.RootElement, "agent_transcript_path");
-      agentId = Text(json.RootElement, "agent_id");
+      namedSubagent = Text(json.RootElement, "agent_transcript_path"); // SubagentStop
     }
     catch (JsonException)
     {
@@ -52,21 +51,25 @@ internal sealed partial class ClaudeCodeTranscriptSource : ITranscriptSource
     }
 
     var files = new List<TranscriptFileRef> { new(transcript, session, "main", null) };
-
-    // Inside a subagent: its file sits in the session's folder, if it exists (don't guess a path that isn't there).
-    if (subagentTranscript is null && agentId is not null && Path.GetDirectoryName(transcript) is { } projectFolder)
+    var subagentPaths = new List<string>();
+    if (Path.GetDirectoryName(transcript) is { } projectFolder
+        && Path.Combine(projectFolder, session, "subagents") is var folder
+        && Directory.Exists(folder))
     {
-      var derived = Path.Combine(projectFolder, session, "subagents", $"agent-{agentId}.jsonl");
-      if (File.Exists(derived))
-      {
-        subagentTranscript = derived;
-      }
+      subagentPaths.AddRange(Directory.EnumerateFiles(folder, "agent-*.jsonl"));
     }
 
-    if (subagentTranscript is not null && SubagentFile().Match(Path.GetFileName(subagentTranscript)) is { Success: true } match)
+    if (namedSubagent is not null && !subagentPaths.Contains(namedSubagent))
     {
-      files.Add(new TranscriptFileRef(subagentTranscript, session, $"subagents/agent-{match.Groups["id"].Value}",
-        Path.ChangeExtension(subagentTranscript, ".meta.json")));
+      subagentPaths.Add(namedSubagent);
+    }
+
+    foreach (var path in subagentPaths)
+    {
+      if (SubagentFile().Match(Path.GetFileName(path)) is { Success: true } match)
+      {
+        files.Add(new TranscriptFileRef(path, session, $"subagents/agent-{match.Groups["id"].Value}", Path.ChangeExtension(path, ".meta.json")));
+      }
     }
 
     return files;

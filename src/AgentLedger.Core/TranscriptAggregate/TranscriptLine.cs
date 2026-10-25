@@ -1,4 +1,5 @@
-﻿using AgentLedger.Core.AgentEventReceiptAggregate;
+﻿using System.Text.Json;
+using AgentLedger.Core.AgentEventReceiptAggregate;
 using AgentLedger.Core.ApiKeyAggregate;
 
 namespace AgentLedger.Core.TranscriptAggregate;
@@ -16,6 +17,10 @@ public sealed class TranscriptLine : EntityBase<TranscriptLine, TranscriptLineId
   // Exactly the file's bytes (as text), valid JSON or not.
   public string Text { get; private set; }
 
+  // The line's own top-level string "type" field, as written (null without one, or when the text isn't JSON):
+  // shown and filtered like an event's type (ADR 0020). Taken here so queries never parse JSON.
+  public string? LineType { get; private set; }
+
   public ApiKeyId ApiKeyId { get; private set; }
   public DateTimeOffset ReceivedAt { get; private set; }
 
@@ -28,9 +33,27 @@ public sealed class TranscriptLine : EntityBase<TranscriptLine, TranscriptLineId
     SubagentId = file.SubagentId;
     ByteOffset = Guard.Against.Negative(byteOffset);
     Text = Guard.Against.Null(text);
+    LineType = TypeFieldOf(Text);
     ApiKeyId = apiKeyId;
     ReceivedAt = Guard.Against.Default(receivedAt);
     Id = TranscriptLineId.For(Agent, NativeSessionId, File, ByteOffset, Text);
+  }
+
+  private static string? TypeFieldOf(string text)
+  {
+    try
+    {
+      using var json = JsonDocument.Parse(text);
+      return json.RootElement.ValueKind == JsonValueKind.Object
+             && json.RootElement.TryGetProperty("type", out var type)
+             && type.ValueKind == JsonValueKind.String
+        ? type.GetString()
+        : null;
+    }
+    catch (JsonException)
+    {
+      return null;
+    }
   }
 
 #pragma warning disable CS8618 // Required by EF Core: properties are set when a row is loaded

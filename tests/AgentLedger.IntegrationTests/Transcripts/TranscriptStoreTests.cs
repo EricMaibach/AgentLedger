@@ -31,6 +31,7 @@ public sealed class TranscriptStoreTests(PostgresFixture db)
     first.SubagentId.ShouldBeNull();
     first.ByteOffset.ShouldBe(0);
     first.Text.ShouldBe("""{"type":"user"}""");
+    first.LineType.ShouldBe("user");
     first.ApiKeyId.ShouldBe(key.Id);
     first.ReceivedAt.ShouldBe(db.Clock.GetUtcNow());
   }

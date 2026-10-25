@@ -33,9 +33,11 @@ public sealed class TranscriptIngestTests(CustomWebApplicationFactory<Program> f
     await TranscriptBatches.SendAsync(ingest, _session, [(0, text)]);
 
     var reader = factory.CreateClientWithKey(await factory.CreateApiKeyAsync("read"));
-    var json = JsonDocument.Parse(await reader.GetStringAsync($"/api/raw/transcripts/lines?session={_session}")).RootElement;
+    var list = JsonDocument.Parse(await reader.GetStringAsync($"/api/raw/transcripts?session={_session}")).RootElement;
+    var lineId = list.GetProperty("items")[0].GetProperty("lineId").GetString();
+    var json = JsonDocument.Parse(await reader.GetStringAsync($"/api/raw/transcripts/{lineId}")).RootElement;
 
-    json.GetProperty("items")[0].GetProperty("text").GetString().ShouldBe(text);
+    json.GetProperty("text").GetString().ShouldBe(text);
   }
 
   [Fact]

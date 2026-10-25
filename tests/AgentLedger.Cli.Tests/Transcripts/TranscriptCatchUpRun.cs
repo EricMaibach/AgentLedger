@@ -67,6 +67,22 @@ public sealed class TranscriptCatchUpRun : IDisposable
   }
 
   [Fact]
+  public void PicksUpASubagentsLateLineOnTheSessionsNextHook()
+  {
+    // The bug this fixes: the subagent's final line was written after its SubagentStop hook had read the file.
+    var transcript = _dir.Write("s1.jsonl", "");
+    var subagent = _dir.Write(Path.Combine("s1", "subagents", "agent-a1.jsonl"), "first\n");
+    CatchUp().Run(Payload(transcript, subagent)); // SubagentStop
+
+    System.IO.File.AppendAllText(subagent, "final answer\n");
+    CatchUp().Run(Payload(transcript)); // the session's next hook, which doesn't name the subagent
+
+    SpooledBatches().Where(b => b.GetProperty("file").GetString() == "subagents/agent-a1")
+      .SelectMany(b => b.GetProperty("lines").EnumerateArray().Select(l => l.GetProperty("text").GetString()))
+      .ShouldBe(["first", "final answer"]);
+  }
+
+  [Fact]
   public void SkipsAFileAnotherProcessIsReading()
   {
     var transcript = _dir.Write("s1.jsonl", "one\n");

@@ -29,7 +29,7 @@ Hooks are installed with `async: true`, so the agent doesn't wait for them.
 - Because the hash is part of the identity, a line that changed at the same offset (a rewritten file) becomes a different line, kept, rather than silently merged.
 
 **Reading: the CLI catches up on every hook**
-- Each hook run, after spooling its event, catches up the session's transcript (`transcript_path`) and, when named (`agent_transcript_path`), a subagent's: from the saved offset to the last **complete** line, at most about 1 MB per run.
+- Each hook run, after spooling its event, catches up the session's transcript (`transcript_path`) and **every subagent file in the session's folder** (for Claude Code, `<session>/subagents/agent-*.jsonl`): from the saved offset to the last **complete** line, at most about 1 MB per file per run. (Revised 2026-10-25: the first version read only a subagent file a hook named, on `SubagentStop`; a subagent's last line can be written after that hook has read the file, and no later hook names the file, so the line was never read. Seen in the rollout check: 24 of 25 lines. Unchanged files cost a size check and a 4 KB fingerprint read.)
 - Per-file state (offset, a fingerprint of the file's start) lives next to the spool, with a lock: a second process finds it locked and skips; the next hook catches up.
 - A file smaller than the saved offset, or with a different fingerprint, is read again from the start; identity makes the repeats harmless.
 - Lines go into the **spool**, so an outage loses nothing. Opted-out projects ([ADR 0013](0013-hook-installation-and-opt-out.md)) aren't read.
@@ -41,9 +41,11 @@ Hooks are installed with `async: true`, so the agent doesn't wait for them.
 - The answer counts stored and already-stored lines. A batch's envelope can be refused (400); a line's content cannot.
 - On the server, a batch is one insert that skips lines already stored.
 
-**Reading them back**
-- API (signed-in browser or read key, like `/api/raw/…`): `GET /api/raw/transcripts?session=…` lists a session's files; `GET /api/raw/transcripts/lines?session=…&file=…` pages through a file's lines in order (keyset paging, [ADR 0016](0016-read-api-and-keyset-paging.md)).
-- UI: `/raw/sessions/{session}/transcript` shows the session's files and one file's lines in order (offset, line type, text, expandable to the exact text); session links in the event list lead to it. Still raw: rendering a conversation is Phase 4.
+**Reading them back** (revised 2026-10-25: the first version had a per-session page, read in file order, which worked unlike everything else in the UI)
+- Built like raw events ([ADR 0016](0016-read-api-and-keyset-paging.md)): `GET /api/raw/transcripts` lists lines newest first with the same kind of filters (agent, line type, session, file, received time range) and keyset paging; `GET /api/raw/transcripts/{lineId}` returns one line with who sent it and its file's meta. A signed-in browser or a read key.
+- Order: received time, then byte offset, then line ID, newest first: a batch arrives at one instant, so the offset keeps a session's lines in file order (reversed).
+- Each row also stores **`line_type`**, the line's own top-level string `type` field (null when there is none or the line isn't JSON), taken by the server when it stores the line, like `subagent_id` from the file name: shown and filtered like an event's type, without parsing JSON in every query.
+- UI: a "Raw transcripts" section beside "Raw events", with the same list and detail pages (`/raw/transcripts`, `/raw/transcripts/{lineId}`); session links connect the two. The first version's `/raw/sessions/{session}/transcript` redirects to the session-filtered list, and its two read endpoints (unused) were replaced.
 
 **Agent-neutral**
 - The tables and server know nothing Claude-specific; meaning is interpreted per agent in projections ([ADR 0003](0003-agent-neutral-core-with-adapters.md)).

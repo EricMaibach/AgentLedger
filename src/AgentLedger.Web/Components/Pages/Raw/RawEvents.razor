@@ -56,7 +56,7 @@ else if (Page is not null)
   {
     <section class="type-counts" aria-labelledby="type-counts-heading">
       <h2 id="type-counts-heading">Event types in this session</h2>
-      <p><a href="@TranscriptLink.To(Session!)">This session's transcript</a></p>
+      <p><a href="@RawTranscriptsLink.To(new RawTranscriptsQueryString(Session: Session))">This session's transcript lines</a></p>
       <ul>
         @foreach (var count in Counts)
         {

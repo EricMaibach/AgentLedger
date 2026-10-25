@@ -19,9 +19,9 @@ public sealed class TranscriptStore(AppDbContext db, TimeProvider clock) : ITran
     """;
 
   private const string InsertLines = """
-    INSERT INTO transcript_lines (id, agent, native_session_id, file, subagent_id, byte_offset, text, api_key_id, received_at, created_at, updated_at)
-    SELECT line.id, @agent, @session, @file, @subagent, line.byte_offset, line.text, line.api_key_id, line.received_at, @now, @now
-    FROM unnest(@ids, @offsets, @texts, @keys, @received) AS line(id, byte_offset, text, api_key_id, received_at)
+    INSERT INTO transcript_lines (id, agent, native_session_id, file, subagent_id, byte_offset, text, line_type, api_key_id, received_at, created_at, updated_at)
+    SELECT line.id, @agent, @session, @file, @subagent, line.byte_offset, line.text, line.line_type, line.api_key_id, line.received_at, @now, @now
+    FROM unnest(@ids, @offsets, @texts, @types, @keys, @received) AS line(id, byte_offset, text, line_type, api_key_id, received_at)
     ON CONFLICT (id) DO NOTHING
     """;
 
@@ -58,6 +58,7 @@ public sealed class TranscriptStore(AppDbContext db, TimeProvider clock) : ITran
       new NpgsqlParameter("ids", lines.Select(l => l.Id.Value).ToArray()),
       new NpgsqlParameter("offsets", lines.Select(l => l.ByteOffset).ToArray()),
       new NpgsqlParameter("texts", lines.Select(l => l.Text).ToArray()),
+      new NpgsqlParameter("types", NpgsqlDbType.Array | NpgsqlDbType.Text) { Value = lines.Select(l => l.LineType).ToArray() },
       new NpgsqlParameter("keys", lines.Select(l => l.ApiKeyId.Value).ToArray()),
       new NpgsqlParameter("received", lines.Select(l => l.ReceivedAt).ToArray()),
     ], cancellationToken);

@@ -6,96 +6,116 @@ using AgentLedger.UseCases.Transcripts;
 
 namespace AgentLedger.IntegrationTests.Transcripts;
 
-// Reading transcripts back (ADR 0020). Each test uses its own session.
+// Reading transcript lines back like raw events (ADR 0020, revised). Each test uses its own session.
 [Collection(nameof(PostgresCollection))]
 public sealed class TranscriptQueryServiceTests(PostgresFixture db)
 {
+  private static readonly DateTimeOffset T0 = new(2026, 10, 25, 12, 0, 0, TimeSpan.Zero);
+
   private readonly string _session = $"session-{Guid.NewGuid():N}";
 
   [Fact]
-  public async Task ListsASessionsFilesMainFirstWithLineCounts()
+  public async Task ListsNewestFirstKeepingABatchInFileOrder()
   {
     var key = await ApiKeyPersistence.SaveNewKeyAsync(db);
-    var early = TranscriptFileName.ForSubagent("early");
-    var late = TranscriptFileName.ForSubagent("late");
-    await AddAsync(key, late, ["x"], meta: """{"agentType":"Explore"}""", firstSeenMinutes: 2);
-    await AddAsync(key, early, ["x", "y"], firstSeenMinutes: 1);
-    await AddAsync(key, TranscriptFileName.Main, ["a", "b", "c"], firstSeenMinutes: 3);
-    await AddAsync(key, TranscriptFileName.Main, ["a", "b", "c"], firstSeenMinutes: 4, sessionOverride: "another-session");
+    await StoreAsync(key, TranscriptFileName.Main, T0, [(0, "a"), (10, "b"), (20, "c")]); // one batch, one instant
+    await StoreAsync(key, TranscriptFileName.Main, T0.AddSeconds(5), [(30, "d")]);
 
-    var files = await ServiceAsync(s => s.ListFilesAsync(_session, CancellationToken.None));
+    var page = await ListAsync(new TranscriptLineFilter(NativeSessionId: _session));
 
-    files.Select(f => (f.File, f.LineCount)).ShouldBe([("main", 3), ("subagents/agent-early", 2), ("subagents/agent-late", 1)]);
-    files[0].Agent.ShouldBe("ClaudeCode");
-    files[0].SubagentId.ShouldBeNull();
-    files[2].SubagentId.ShouldBe("late");
-    files[2].Meta.ShouldBe("""{"agentType":"Explore"}""");
+    page.Items.Select(i => i.ByteOffset).ShouldBe([30L, 20L, 10L, 0L]);
+    page.Next.ShouldBeNull();
   }
 
   [Fact]
-  public async Task ListsNoFilesForAnUnknownSession()
-  {
-    (await ServiceAsync(s => s.ListFilesAsync("no-such-session", CancellationToken.None))).ShouldBeEmpty();
-  }
-
-  [Fact]
-  public async Task PagesThroughAFilesLinesInOrderWithoutGapsOrRepeats()
+  public async Task PagesThroughEverythingWithoutGapsOrRepeats()
   {
     var key = await ApiKeyPersistence.SaveNewKeyAsync(db);
-    await AddAsync(key, TranscriptFileName.Main, ["l0", "l1", "l2", "l3", "l4"]);
-    // A rewrite: a second, different line at offset 2 (the second line's offset). Both are kept and both are paged.
-    await AddLinesAsync(key, TranscriptFileName.Main, [(2, "l1-rewritten")]);
-    await AddAsync(key, TranscriptFileName.ForSubagent("other"), ["not this file"]);
+    await StoreAsync(key, TranscriptFileName.Main, T0, [(0, "l0"), (2, "l1"), (4, "l2")]);
+    await StoreAsync(key, TranscriptFileName.Main, T0, [(2, "l1-rewritten")]); // same instant and offset: the ID breaks the tie
+    await StoreAsync(key, TranscriptFileName.Main, T0.AddSeconds(1), [(6, "l3"), (8, "l4")]);
 
     var seen = new List<string>();
     TranscriptLineCursor? cursor = null;
     var pages = 0;
     do
     {
-      var page = await ServiceAsync(s => s.ListLinesAsync(_session, TranscriptFileName.Main, cursor, 2, CancellationToken.None));
-      seen.AddRange(page.Items.Select(l => l.Text));
+      var page = await ListAsync(new TranscriptLineFilter(NativeSessionId: _session), cursor, limit: 2);
+      seen.AddRange(page.Items.Select(i => i.Preview));
       cursor = page.Next;
       pages++;
     }
     while (cursor is not null && pages < 10);
 
     seen.Count.ShouldBe(6);
-    seen.ShouldBe(["l0", "l1", "l1-rewritten", "l2", "l3", "l4"], ignoreOrder: true);
-    seen[0].ShouldBe("l0");
-    seen[^1].ShouldBe("l4");
+    seen.ShouldBe(["l4", "l3", "l2", "l1", "l1-rewritten", "l0"], ignoreOrder: true);
+    seen.Take(3).ShouldBe(["l4", "l3", "l2"]);
+    seen[^1].ShouldBe("l0");
     pages.ShouldBe(3);
   }
 
   [Fact]
-  public async Task ReturnsEachLinesTextAndOffset()
+  public async Task FiltersByAgentLineTypeSessionFileAndReceivedTime()
   {
     var key = await ApiKeyPersistence.SaveNewKeyAsync(db);
-    await AddAsync(key, TranscriptFileName.Main, ["""{"type":"user"}"""]);
+    var subagent = TranscriptFileName.ForSubagent("a1");
+    await StoreAsync(key, TranscriptFileName.Main, T0, [(0, """{"type":"user"}"""), (20, """{"type":"assistant"}""")]);
+    await StoreAsync(key, subagent, T0, [(0, """{"type":"assistant"}""")]);
+    await StoreAsync(key, TranscriptFileName.Main, T0.AddMinutes(10), [(40, """{"type":"assistant"}""")]);
 
-    var line = (await ServiceAsync(s => s.ListLinesAsync(_session, TranscriptFileName.Main, null, 10, CancellationToken.None)))
-      .Items.ShouldHaveSingleItem();
+    var page = await ListAsync(new TranscriptLineFilter(Agent: "ClaudeCode", LineType: "assistant", NativeSessionId: _session,
+      File: "main", From: T0, To: T0.AddMinutes(10)));
 
-    line.ByteOffset.ShouldBe(0);
-    line.Text.ShouldBe("""{"type":"user"}""");
-    line.LineId.ShouldBe(TranscriptLineId.For(AgentKind.ClaudeCode, _session, TranscriptFileName.Main, 0, """{"type":"user"}""").Value);
-    line.ReceivedAt.ShouldBe(db.Clock.GetUtcNow());
+    page.Items.ShouldHaveSingleItem().ByteOffset.ShouldBe(20);
   }
 
-  // Lines at offsets 0, 2, 4, …: the store only needs distinct offsets.
-  private Task AddAsync(ApiKey key, TranscriptFileName file, string[] texts, string? meta = null, int firstSeenMinutes = 0,
-    string? sessionOverride = null) =>
-    StoreAsync(key, file, texts.Select((t, i) => ((long)i * 2, t)).ToArray(), meta, firstSeenMinutes, sessionOverride);
-
-  private Task AddLinesAsync(ApiKey key, TranscriptFileName file, (long Offset, string Text)[] lines) =>
-    StoreAsync(key, file, lines, null, 0, null);
-
-  private async Task StoreAsync(ApiKey key, TranscriptFileName file, (long Offset, string Text)[] lines, string? meta, int firstSeenMinutes,
-    string? sessionOverride)
+  [Fact]
+  public async Task FillsInEveryColumnWithAShortPreview()
   {
-    var session = sessionOverride ?? _session;
-    var at = db.Clock.GetUtcNow();
-    var transcriptFile = new TranscriptFile(AgentKind.ClaudeCode, session, file, meta, key.Id, at.AddMinutes(firstSeenMinutes));
-    var rows = lines.Select(l => new TranscriptLine(AgentKind.ClaudeCode, session, file, l.Offset, l.Text, key.Id, at)).ToList();
+    var key = await ApiKeyPersistence.SaveNewKeyAsync(db);
+    var text = "{\"type\":\"assistant\",\"message\":{\"content\":\"" + new string('x', 300) + "\"}}";
+    await StoreAsync(key, TranscriptFileName.ForSubagent("a1"), T0, [(412, text)]);
+
+    var item = (await ListAsync(new TranscriptLineFilter(NativeSessionId: _session))).Items.ShouldHaveSingleItem();
+
+    item.LineId.ShouldBe(TranscriptLineId.For(AgentKind.ClaudeCode, _session, TranscriptFileName.ForSubagent("a1"), 412, text).Value);
+    item.Agent.ShouldBe("ClaudeCode");
+    item.LineType.ShouldBe("assistant");
+    item.NativeSessionId.ShouldBe(_session);
+    item.File.ShouldBe("subagents/agent-a1");
+    item.SubagentId.ShouldBe("a1");
+    item.ByteOffset.ShouldBe(412);
+    item.ReceivedAt.ShouldBe(T0);
+    item.Preview.ShouldBe(text[..TranscriptLineListItem.PreviewLength]);
+  }
+
+  [Fact]
+  public async Task GetsOneLineWithItsFilesMeta()
+  {
+    var key = await ApiKeyPersistence.SaveNewKeyAsync(db);
+    var subagent = TranscriptFileName.ForSubagent("a1");
+    await StoreAsync(key, subagent, T0, [(7, """{"type":"user"}""")], meta: """{"agentType":"Explore"}""");
+    var lineId = TranscriptLineId.For(AgentKind.ClaudeCode, _session, subagent, 7, """{"type":"user"}""");
+
+    var row = await ServiceAsync(s => s.GetLineAsync(lineId, CancellationToken.None));
+
+    row.ShouldBe(new TranscriptLineRow(lineId.Value, "ClaudeCode", "user", _session, "subagents/agent-a1", "a1", 7, """{"type":"user"}""",
+      T0, key.Id.Value, """{"agentType":"Explore"}"""));
+  }
+
+  [Fact]
+  public async Task GetsNothingForAnUnknownLine()
+  {
+    (await ServiceAsync(s => s.GetLineAsync(TranscriptLineId.From(Guid.CreateVersion7()), CancellationToken.None))).ShouldBeNull();
+  }
+
+  private Task<TranscriptLinePage> ListAsync(TranscriptLineFilter filter, TranscriptLineCursor? after = null, int limit = 50) =>
+    ServiceAsync(s => s.ListLinesAsync(filter, after, limit, CancellationToken.None));
+
+  private async Task StoreAsync(ApiKey key, TranscriptFileName file, DateTimeOffset receivedAt, (long Offset, string Text)[] lines, string? meta = null)
+  {
+    var transcriptFile = new TranscriptFile(AgentKind.ClaudeCode, _session, file, meta, key.Id, receivedAt);
+    var rows = lines.Select(l => new TranscriptLine(AgentKind.ClaudeCode, _session, file, l.Offset, l.Text, key.Id, receivedAt)).ToList();
     using var scope = db.Services.CreateScope();
     await scope.ServiceProvider.GetRequiredService<ITranscriptStore>().AddAsync(transcriptFile, rows, CancellationToken.None);
   }

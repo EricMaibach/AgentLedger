@@ -1,95 +1,143 @@
 ﻿using System.Net;
 using System.Text;
+using System.Text.Json;
 using AgentLedger.FunctionalTests.ApiEndpoints;
 using AgentLedger.FunctionalTests.Authentication;
 
 namespace AgentLedger.FunctionalTests.Transcripts;
 
-// /raw/sessions/{session}/transcript (docs/ui.md, Transcript page).
+// The "Raw transcripts" pages (docs/ui.md): built like the raw events pages.
 public sealed class TranscriptPageTests(CustomWebApplicationFactory<Program> factory) : IClassFixture<CustomWebApplicationFactory<Program>>
 {
   private readonly string _session = $"session-{Guid.NewGuid():N}";
 
-  private async Task<string> PageAsync(string query = "")
+  private async Task<string> PageAsync(string url, HttpStatusCode expected = HttpStatusCode.OK)
   {
     var browser = await factory.CreateSignedInBrowserAsync();
-    var response = await browser.GetAsync($"/raw/sessions/{_session}/transcript{query}");
-    response.StatusCode.ShouldBe(HttpStatusCode.OK);
+    var response = await browser.GetAsync(url);
+    response.StatusCode.ShouldBe(expected);
     return await response.Content.ReadAsStringAsync();
   }
 
+  private async Task<string> LineIdAsync(int index = 0)
+  {
+    var reader = factory.CreateClientWithKey(await factory.CreateApiKeyAsync("read"));
+    var json = JsonDocument.Parse(await reader.GetStringAsync($"/api/raw/transcripts?session={_session}")).RootElement;
+    return json.GetProperty("items")[index].GetProperty("lineId").GetString()!;
+  }
+
   [Fact]
-  public async Task ShowsTheMainFilesLinesInOrder()
+  public async Task ListsASessionsLinesWithLinksToTheirPage()
   {
     var ingest = await factory.CreateIngestClientAsync();
-    await TranscriptBatches.SendAsync(ingest, _session, [(0, """{"type":"user","n":1}"""), (25, """{"type":"assistant","n":2}""")]);
+    await TranscriptBatches.SendAsync(ingest, _session, [(0, """{"type":"user"}"""), (16, """{"type":"assistant"}""")]);
 
-    var html = await PageAsync();
+    var html = await PageAsync($"/raw/transcripts?session={_session}");
 
-    html.ShouldContain("<title>Transcript");
+    html.ShouldContain("<title>Raw transcripts");
+    html.ShouldContain($"href=\"/raw/transcripts/{await LineIdAsync()}\"");
+    html.ShouldContain("Claude Code");
     html.ShouldContain("assistant");
-    html.IndexOf("&quot;n&quot;:1", StringComparison.Ordinal).ShouldBeLessThan(html.IndexOf("&quot;n&quot;:2", StringComparison.Ordinal));
-    html.ShouldContain("<details");
-    html.ShouldContain("aria-current=\"page\"");
+    html.ShouldContain("UTC");
   }
 
   [Fact]
-  public async Task ShowsTheExactTextOnRequest()
+  public async Task OffersOlderLinesWhenThereIsAnotherPage()
   {
     var ingest = await factory.CreateIngestClientAsync();
-    await TranscriptBatches.SendAsync(ingest, _session, [(0, "{\"type\":\"user\",   \"spaced\":true}")]);
+    await TranscriptBatches.SendAsync(ingest, _session, [(0, "a"), (2, "b")]);
 
-    (await PageAsync("?view=exact")).ShouldContain("{&quot;type&quot;:&quot;user&quot;,   &quot;spaced&quot;:true}");
-  }
+    var html = await PageAsync($"/raw/transcripts?session={_session}&limit=1");
 
-  [Fact]
-  public async Task ShowsASubagentsFileWithItsMeta()
-  {
-    var ingest = await factory.CreateIngestClientAsync();
-    await TranscriptBatches.SendAsync(ingest, _session, [(0, """{"type":"user"}""")]);
-    await TranscriptBatches.SendAsync(ingest, _session, [(0, """{"type":"user","sub":true}""")], file: "subagents/agent-a1b2c3",
-      subagentMeta: """{"agentType":"Explore"}""");
-
-    var main = await PageAsync();
-    main.ShouldContain("Subagent a1b2c3");
-    main.ShouldContain("file=subagents%2Fagent-a1b2c3");
-
-    var sub = await PageAsync("?file=subagents%2Fagent-a1b2c3");
-    sub.ShouldContain("&quot;sub&quot;:true");
-    sub.ShouldContain("Explore");
-  }
-
-  [Fact]
-  public async Task OffersTheNextLines()
-  {
-    var ingest = await factory.CreateIngestClientAsync();
-    await TranscriptBatches.SendAsync(ingest, _session, Enumerable.Range(0, 3).Select(i => ((long)i * 10, $"line {i}")));
-
-    var html = await PageAsync("?limit=2");
-
-    html.ShouldContain("Next lines");
+    html.ShouldContain("Older");
     html.ShouldContain("after=");
   }
 
   [Fact]
-  public async Task SaysSoWhenTheSessionHasNoTranscript()
+  public async Task SaysSoWhenNothingMatches()
   {
-    var html = await PageAsync();
+    var html = await PageAsync($"/raw/transcripts?session={_session}");
 
-    html.ShouldContain("No transcript for this session");
-    html.ShouldContain($"/raw/events?session={_session}");
+    html.ShouldContain("No transcript lines match these filters");
+    html.ShouldContain("Clear filters");
   }
 
   [Fact]
-  public async Task TheEventPageLinksToTheTranscript()
+  public async Task ExplainsAnUnusableFilterInsteadOfFailing()
+  {
+    (await PageAsync("/raw/transcripts?file=nope")).ShouldContain("role=\"alert\"");
+  }
+
+  [Fact]
+  public async Task ShowsALineWithWhoSentItFormatted()
+  {
+    var ingest = factory.CreateClientWithKey(await factory.CreateApiKeyAsync("ingest", "page-sender", "laptop"));
+    await TranscriptBatches.SendAsync(ingest, _session, [(412, """{"type":"user","a":2}""")]);
+
+    var html = await PageAsync($"/raw/transcripts/{await LineIdAsync()}");
+
+    html.ShouldContain("<title>user");
+    html.ShouldContain("412");
+    html.ShouldContain("page-sender");
+    html.ShouldContain("laptop");
+    html.ShouldContain("&quot;a&quot;: 2");
+  }
+
+  [Fact]
+  public async Task ShowsALineExactlyOnRequest()
+  {
+    var ingest = await factory.CreateIngestClientAsync();
+    await TranscriptBatches.SendAsync(ingest, _session, [(0, "{\"type\":\"user\",   \"spaced\":true}")]);
+
+    (await PageAsync($"/raw/transcripts/{await LineIdAsync()}?view=exact"))
+      .ShouldContain("{&quot;type&quot;:&quot;user&quot;,   &quot;spaced&quot;:true}");
+  }
+
+  [Fact]
+  public async Task ShowsASubagentLinesMeta()
+  {
+    var ingest = await factory.CreateIngestClientAsync();
+    await TranscriptBatches.SendAsync(ingest, _session, [(0, """{"type":"user"}""")], file: "subagents/agent-a1b2c3",
+      subagentMeta: """{"agentType":"Explore"}""");
+
+    var html = await PageAsync($"/raw/transcripts/{await LineIdAsync()}");
+
+    html.ShouldContain("a1b2c3");
+    html.ShouldContain("Explore");
+  }
+
+  [Fact]
+  public async Task AnUnknownLineIsANotFoundPage()
+  {
+    (await PageAsync($"/raw/transcripts/{Guid.CreateVersion7()}", HttpStatusCode.NotFound)).ShouldContain("<title>Not found");
+  }
+
+  [Fact]
+  public async Task TheOldSessionTranscriptUrlStillWorks()
+  {
+    var browser = await factory.CreateSignedInBrowserAsync();
+
+    var response = await browser.GetAsync($"/raw/sessions/{_session}/transcript");
+
+    response.StatusCode.ShouldBe(HttpStatusCode.Redirect);
+    response.RedirectTarget().ShouldBe($"/raw/transcripts?session={_session}");
+  }
+
+  [Fact]
+  public async Task EventsAndTranscriptLinesLinkToEachOther()
   {
     var ingest = await factory.CreateIngestClientAsync();
     var eventId = Guid.CreateVersion7();
     await ingest.PostAsync("/events", new StringContent(TestEnvelope.Json(eventId: eventId, nativeSessionId: _session), Encoding.UTF8, "application/json"));
-    var browser = await factory.CreateSignedInBrowserAsync();
+    await TranscriptBatches.SendAsync(ingest, _session, [(0, """{"type":"user"}""")]);
 
-    var html = await (await browser.GetAsync($"/raw/events/{eventId}")).Content.ReadAsStringAsync();
+    (await PageAsync($"/raw/events/{eventId}")).ShouldContain($"/raw/transcripts?session={_session}");
+    (await PageAsync($"/raw/transcripts/{await LineIdAsync()}")).ShouldContain($"/raw/events?session={_session}");
+  }
 
-    html.ShouldContain($"/raw/sessions/{_session}/transcript");
+  [Fact]
+  public async Task TheNavigationLeadsToRawTranscripts()
+  {
+    (await PageAsync("/raw/events")).ShouldContain("href=\"/raw/transcripts\"");
   }
 }

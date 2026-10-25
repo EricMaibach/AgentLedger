@@ -46,6 +46,12 @@ public static class MiddlewareConfig
     app.MapStaticAssets().AllowAnonymous();
     app.MapRazorComponents<AgentLedger.Web.Components.App>();
     app.MapSignOut();
+
+    // The first transcript page (v0.4.0) was per session; its URL keeps working (docs/ui.md, permanent URLs).
+    app.MapGet("/raw/sessions/{session}/transcript", (string session, string? file) =>
+        Results.Redirect(AgentLedger.Web.Components.Formatting.RawTranscriptsLink.To(
+          new AgentLedger.Web.Components.Formatting.RawTranscriptsQueryString(Session: session, File: file is null or "main" ? null : file))))
+      .ExcludeFromDescription();
     app.MapGet("/", () => Results.Redirect(AgentLedger.Web.Components.Formatting.RawEventsLink.Path)).ExcludeFromDescription();
 
     if (app.Environment.IsDevelopment())

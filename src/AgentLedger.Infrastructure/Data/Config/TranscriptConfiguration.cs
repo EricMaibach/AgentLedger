@@ -25,12 +25,17 @@ public sealed class TranscriptLineConfiguration : IEntityTypeConfiguration<Trans
     // text, not json: exactly the file's bytes, valid JSON or not (ADR 0020). Postgres compresses long values.
     builder.Property(l => l.Text).HasColumnType("text").IsRequired();
 
+    // The line's own top-level "type" field, taken when it was stored (ADR 0020): filtered like an event's type.
+    builder.Property(l => l.LineType);
+
     builder.Property(l => l.ApiKeyId).HasVogenConversion().IsRequired();
     builder.HasOne<ApiKey>().WithMany().HasForeignKey(l => l.ApiKeyId).OnDelete(DeleteBehavior.Restrict);
     builder.Property(l => l.ReceivedAt).IsRequired();
 
     // Reading a file's lines in order.
     builder.HasIndex(l => new { l.Agent, l.NativeSessionId, l.File, l.ByteOffset });
+    // The raw transcripts list, newest first: ORDER BY received_at DESC, byte_offset DESC, id DESC (ADR 0020).
+    builder.HasIndex(l => new { l.ReceivedAt, l.ByteOffset, l.Id });
     builder.HasIndex(l => l.ApiKeyId);
   }
 }

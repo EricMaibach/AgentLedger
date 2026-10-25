@@ -10,7 +10,8 @@ public sealed class AccessTests(CustomWebApplicationFactory<Program> factory) : 
   [InlineData("/raw/events/0199a0b0-0000-7000-8000-000000000001")]
   [InlineData("/account/password")]
   [InlineData("/settings/api-keys")]
-  [InlineData("/raw/sessions/s1/transcript")]
+  [InlineData("/raw/transcripts")]
+  [InlineData("/raw/transcripts/0199a0b0-0000-7000-8000-000000000001")]
   [InlineData("/")]
   public async Task PagesSendSignedOutVisitorsToLoginAndBack(string url)
   {
@@ -25,8 +26,8 @@ public sealed class AccessTests(CustomWebApplicationFactory<Program> factory) : 
   [Theory]
   [InlineData("/api/raw/events")]
   [InlineData("/api/raw/events/counts")]
-  [InlineData("/api/raw/transcripts?session=s1")]
-  [InlineData("/api/raw/transcripts/lines?session=s1")]
+  [InlineData("/api/raw/transcripts")]
+  [InlineData("/api/raw/transcripts/0199a0b0-0000-7000-8000-000000000001")]
   [InlineData("/api/raw/events/0199a0b0-0000-7000-8000-000000000001")]
   public async Task TheApiAnswers401NotALoginPage(string url)
   {

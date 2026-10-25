@@ -28,6 +28,20 @@ public sealed class TranscriptLineConstructor
     line.ReceivedAt.ShouldBe(ReceivedAt);
   }
 
+  [Theory]
+  [InlineData("""{"type":"assistant","message":{}}""", "assistant")]
+  [InlineData("""{"parentUuid":null, "type":"user"}""", "user")]
+  [InlineData("""{"message":{}}""", null)]   // no type field
+  [InlineData("""{"type":42}""", null)]      // not a string
+  [InlineData("""["type","user"]""", null)]  // not an object
+  [InlineData("{\"type\":\"user\", not json", null)]
+  [InlineData("", null)]
+  public void TakesTheLineTypeFromTheLinesOwnTypeField(string text, string? expected)
+  {
+    // Shown and filtered like an event's type (ADR 0020); the text itself is untouched.
+    Line(text: text).LineType.ShouldBe(expected);
+  }
+
   [Fact]
   public void KeepsTheTextExactlyEvenIfItIsNotJson()
   {

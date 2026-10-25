@@ -291,6 +291,10 @@ namespace AgentLedger.Infrastructure.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("file");
 
+                    b.Property<string>("LineType")
+                        .HasColumnType("text")
+                        .HasColumnName("line_type");
+
                     b.Property<string>("NativeSessionId")
                         .IsRequired()
                         .HasColumnType("text")
@@ -319,6 +323,9 @@ namespace AgentLedger.Infrastructure.Data.Migrations
 
                     b.HasIndex("ApiKeyId")
                         .HasDatabaseName("ix_transcript_lines_api_key_id");
+
+                    b.HasIndex("ReceivedAt", "ByteOffset", "Id")
+                        .HasDatabaseName("ix_transcript_lines_received_at_byte_offset_id");
 
                     b.HasIndex("Agent", "NativeSessionId", "File", "ByteOffset")
                         .HasDatabaseName("ix_transcript_lines_agent_native_session_id_file_byte_offset");

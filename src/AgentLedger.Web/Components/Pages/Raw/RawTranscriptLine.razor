@@ -1,0 +1,90 @@
+@page "/raw/transcripts/{LineId:guid}"
+@inject IMediator Mediator
+@inject NavigationManager Navigation
+
+@* One transcript line (ADR 0020, docs/ui.md): built like an event's page. Its URL is permanent: projections can
+   link here as evidence. *@
+
+@if (Detail is not null)
+{
+  var line = Detail.Line;
+  <PageTitle>@(line.LineType ?? "Line") · @DisplayFormat.ShortId(line.LineId) · AgentLedger</PageTitle>
+
+  <p class="breadcrumb"><a href="@RawTranscriptsLink.Path">Raw transcripts</a> / line</p>
+  <h1>
+    @if (line.LineType is { } lineType)
+    {
+      <EventTypeBadge Value="@lineType" />
+    }
+    <AgentName WireName="@WireName" />
+  </h1>
+
+  <section aria-labelledby="envelope-heading">
+    <h2 id="envelope-heading">Line</h2>
+    <dl class="fields">
+      <dt>Line ID</dt>
+      <dd><code>@line.LineId</code> <CopyButton Text="@line.LineId.ToString()" Label="Copy line ID" /></dd>
+      <dt>Agent</dt>
+      <dd><AgentName WireName="@WireName" /> <code>@WireName</code></dd>
+      <dt>Session</dt>
+      <dd>
+        <code>@line.NativeSessionId</code>
+        · <a href="@RawEventsLink.To(new RawEventsQueryString(Session: line.NativeSessionId))">Events</a>
+        · <a href="@RawTranscriptsLink.To(new RawTranscriptsQueryString(Session: line.NativeSessionId))">Transcript lines</a>
+      </dd>
+      <dt>File</dt>
+      <dd>
+        <a href="@RawTranscriptsLink.To(new RawTranscriptsQueryString(Session: line.NativeSessionId, File: line.File))">@(line.SubagentId is { } subagent ? $"subagent {subagent}" : "main")</a>
+        <code>@line.File</code>
+      </dd>
+      <dt>Byte offset</dt>
+      <dd>@line.ByteOffset</dd>
+      <dt>Line type</dt>
+      <dd>@(line.LineType ?? "—")</dd>
+      <dt>Received</dt>
+      <dd><Timestamp Value="line.ReceivedAt" WithMilliseconds="true" /></dd>
+      <dt>Sent by</dt>
+      <dd>
+        @if (Detail.SentWith is { } sender)
+        {
+          @sender.Owner <span class="muted">(key: @sender.KeyName)</span>
+        }
+        else
+        {
+          <span class="muted">—</span>
+        }
+      </dd>
+    </dl>
+  </section>
+
+  @if (line.FileMeta is { } meta)
+  {
+    <JsonViewer Json="@meta" Title="Subagent meta" Exact="@ShowExact"
+                FormattedHref="@RawTranscriptsLink.ToLine(LineId)" ExactHref="@($"{RawTranscriptsLink.ToLine(LineId)}?view=exact")" />
+  }
+
+  <JsonViewer Json="@line.Text" Title="Text" Exact="@ShowExact"
+              FormattedHref="@RawTranscriptsLink.ToLine(LineId)" ExactHref="@($"{RawTranscriptsLink.ToLine(LineId)}?view=exact")" />
+}
+
+@code {
+  [Parameter] public Guid LineId { get; set; }
+  [SupplyParameterFromQuery] public string? View { get; set; }
+
+  private UseCases.Transcripts.GetTranscriptLine.TranscriptLineDetail? Detail { get; set; }
+  private bool ShowExact => string.Equals(View, "exact", StringComparison.OrdinalIgnoreCase);
+  private string WireName => AgentWireName.FromAgentKindName(Detail!.Line.Agent);
+
+  protected override async Task OnInitializedAsync()
+  {
+    var result = await Mediator.Send(new UseCases.Transcripts.GetTranscriptLine.GetTranscriptLineQuery(LineId));
+    if (result.IsSuccess)
+    {
+      Detail = result.Value;
+    }
+    else
+    {
+      Navigation.NotFound(); // 404, rendering the Router's NotFoundPage
+    }
+  }
+}

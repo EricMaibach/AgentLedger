@@ -28,7 +28,7 @@
         @if (Detail.NativeSessionId is { } session)
         {
           <a href="@RawEventsLink.To(new RawEventsQueryString(Session: session))"><code>@session</code></a>
-          <span class="muted">·</span> <a href="@TranscriptLink.To(session)">Transcript</a>
+          <span class="muted">·</span> <a href="@RawTranscriptsLink.To(new RawTranscriptsQueryString(Session: session))">Transcript</a>
         }
         else
         {

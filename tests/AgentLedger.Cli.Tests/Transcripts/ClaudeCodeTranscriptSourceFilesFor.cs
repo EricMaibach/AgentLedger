@@ -35,14 +35,40 @@ public sealed class ClaudeCodeTranscriptSourceFilesFor : IDisposable
   }
 
   [Fact]
-  public void FindsTheSubagentsTranscriptFromInsideIt()
+  public void FindsEverySubagentFileInTheSessionsFolder()
   {
-    // Hooks fired inside a subagent carry its agent_id; its file sits in the session's subagents folder.
-    var subagent = _dir.Write(Path.Combine("projects", "-workspace", "s1", "subagents", "agent-a1b2c3.jsonl"), "");
+    // Every hook of the session catches up all its subagents, so a line written after a subagent's last hook
+    // is still read (ADR 0020, revised).
+    var first = _dir.Write(Path.Combine("projects", "-workspace", "s1", "subagents", "agent-a1.jsonl"), "");
+    var second = _dir.Write(Path.Combine("projects", "-workspace", "s1", "subagents", "agent-b2.jsonl"), "");
 
-    var files = _source.FilesFor($$"""{"session_id":"s1","transcript_path":"{{MainPath}}","agent_id":"a1b2c3","hook_event_name":"PreToolUse"}""");
+    var files = _source.FilesFor($$"""{"session_id":"s1","transcript_path":"{{MainPath}}","hook_event_name":"PreToolUse"}""");
 
-    files.ShouldContain(new TranscriptFileRef(subagent, "s1", "subagents/agent-a1b2c3", Path.ChangeExtension(subagent, ".meta.json")));
+    files.ShouldBe([
+      new TranscriptFileRef(MainPath, "s1", "main", null),
+      new TranscriptFileRef(first, "s1", "subagents/agent-a1", Path.ChangeExtension(first, ".meta.json")),
+      new TranscriptFileRef(second, "s1", "subagents/agent-b2", Path.ChangeExtension(second, ".meta.json"))], ignoreOrder: true);
+  }
+
+  [Fact]
+  public void IgnoresOtherFilesInTheSubagentsFolder()
+  {
+    _dir.Write(Path.Combine("projects", "-workspace", "s1", "subagents", "agent-a1.meta.json"), "{}");
+    _dir.Write(Path.Combine("projects", "-workspace", "s1", "subagents", "notes.txt"), "");
+
+    var files = _source.FilesFor($$"""{"session_id":"s1","transcript_path":"{{MainPath}}"}""");
+
+    files.ShouldBe([new TranscriptFileRef(MainPath, "s1", "main", null)]);
+  }
+
+  [Fact]
+  public void ListsANamedSubagentFileOnlyOnce()
+  {
+    var subagent = _dir.Write(Path.Combine("projects", "-workspace", "s1", "subagents", "agent-a1.jsonl"), "");
+
+    var files = _source.FilesFor($$"""{"session_id":"s1","transcript_path":"{{MainPath}}","agent_transcript_path":"{{subagent}}"}""");
+
+    files.Count(f => f.FileName == "subagents/agent-a1").ShouldBe(1);
   }
 
   [Fact]
