@@ -19,6 +19,21 @@ public static class MiddlewareConfig
     }
 
     // Login (ADR 0018): limit login attempts, then authenticate and authorize every request (deny by default).
+    // Requests the server finds bad while reading the body (e.g. a decompressed body over its limit: 413) carry
+    // their own status; the general exception handler above would turn them into 500.
+    app.Use(async (context, next) =>
+    {
+      try
+      {
+        await next(context);
+      }
+      catch (BadHttpRequestException ex) when (!context.Response.HasStarted)
+      {
+        await Results.Problem(statusCode: ex.StatusCode, title: ex.Message).ExecuteAsync(context);
+      }
+    });
+
+    app.UseRequestDecompression(); // size limits apply to the decompressed body (ADR 0020)
     app.UseRateLimiter();
     app.UseAuthentication();
     app.UseAuthorization();

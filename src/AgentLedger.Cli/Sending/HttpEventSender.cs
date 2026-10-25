@@ -23,6 +23,39 @@ internal interface IEventSender
   Task<SendOutcome> SendAsync(string envelopeJson, CancellationToken cancellationToken);
 }
 
+/// <summary>How the API's answer settles a spooled item; shared by events and transcript batches.</summary>
+internal static class SendOutcomes
+{
+  public static async Task<SendOutcome> FromResponseAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+  {
+    var status = (int)response.StatusCode;
+    var detail = $"{status} {response.ReasonPhrase}";
+
+    if (response.IsSuccessStatusCode)
+    {
+      return new SendOutcome(SendResult.Accepted, detail);
+    }
+
+    // A key problem is configuration, not a bad event: keep the event until the key is fixed (ADR 0019).
+    if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
+    {
+      var problem = response.StatusCode is HttpStatusCode.Unauthorized
+        ? "API key missing, unknown, revoked or expired"
+        : "API key isn't an ingest key";
+      return new SendOutcome(SendResult.Failed, $"{detail}: {problem}");
+    }
+
+    // 408 and 429 are 4xx but temporary; every other 4xx means this request itself is wrong.
+    var temporary = status >= 500 || response.StatusCode is HttpStatusCode.RequestTimeout or HttpStatusCode.TooManyRequests;
+    if (!temporary)
+    {
+      detail += $": {await response.Content.ReadAsStringAsync(cancellationToken)}";
+    }
+
+    return new SendOutcome(temporary ? SendResult.Failed : SendResult.Rejected, detail);
+  }
+}
+
 /// <summary>POSTs envelopes to the API's /events endpoint (ADR 0011). The HttpClient's timeout bounds each send.</summary>
 internal sealed class HttpEventSender(HttpClient http, Uri apiUrl, string? apiKey) : IEventSender
 {
@@ -42,31 +75,7 @@ internal sealed class HttpEventSender(HttpClient http, Uri apiUrl, string? apiKe
     try
     {
       using var response = await http.SendAsync(request, cancellationToken);
-      var status = (int)response.StatusCode;
-      var detail = $"{status} {response.ReasonPhrase}";
-
-      if (response.IsSuccessStatusCode)
-      {
-        return new SendOutcome(SendResult.Accepted, detail);
-      }
-
-      // A key problem is configuration, not a bad event: keep the event until the key is fixed (ADR 0019).
-      if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
-      {
-        var problem = response.StatusCode is HttpStatusCode.Unauthorized
-          ? "API key missing, unknown, revoked or expired"
-          : "API key isn't an ingest key";
-        return new SendOutcome(SendResult.Failed, $"{detail}: {problem}");
-      }
-
-      // 408 and 429 are 4xx but temporary; every other 4xx means this request itself is wrong.
-      var temporary = status >= 500 || response.StatusCode is HttpStatusCode.RequestTimeout or HttpStatusCode.TooManyRequests;
-      if (!temporary)
-      {
-        detail += $": {await response.Content.ReadAsStringAsync(cancellationToken)}";
-      }
-
-      return new SendOutcome(temporary ? SendResult.Failed : SendResult.Rejected, detail);
+      return await SendOutcomes.FromResponseAsync(response, cancellationToken);
     }
     catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
     {

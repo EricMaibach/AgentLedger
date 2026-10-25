@@ -24,8 +24,8 @@ agent hook ──stdin──► agentledger CLI ──HTTP──► API ──�
 ## Phases
 
 1. **Capture.** Every hook event from Claude Code lands in Postgres as a raw event. Done, apart from final verification; the stable ledger records this project's own development.
-2. **Visibility and access (current).** People and AI can see what was logged without direct database access, and every entry point is authenticated. A web UI (raw event explorer) and read API, password login, scoped API keys (ingest required on `POST /events`), HTTPS, and optional GitHub login. Pulled ahead of transcripts: without it there's no way to view or validate the ledger, and ingest is currently open to the network.
-3. **Transcripts. Critical, immediately after visibility.** The CLI reads agent transcripts incrementally, capturing assistant responses, reasoning and per-message token usage, which hooks don't expose. It's also the only way to recover what happened before hooks were installed.
+2. **Visibility and access (released in v0.2.0 and v0.3.0; user management, HTTPS and GitHub login when needed).** People and AI can see what was logged without direct database access, and every entry point is authenticated. A web UI (raw event explorer) and read API, password login, scoped API keys (ingest required on `POST /events`), HTTPS, and optional GitHub login. Pulled ahead of transcripts: without it there's no way to view or validate the ledger, and ingest is currently open to the network.
+3. **Transcripts (next).** The CLI reads agent transcripts incrementally on every hook, capturing assistant responses, reasoning (where present) and per-response token usage, which hooks don't expose ([ADR 0020](adr/0020-transcripts.md)).
 4. **Projections.** Deduplicated agent events, then sessions, turns, tool calls and cost, derived from raw events. The UI gains session and cost views; the read-only MCP server ([ADR 0008](adr/0008-read-only-mcp-server.md)) exposes them to AI.
 5. **Delivery.** Mostly done early: CI on every push, the container image and GitHub Releases (ADR 0014). Remaining: architecture tests, and CLI binaries attached to releases.
 6. **More agents.** Capture real payloads, then an adapter per agent: Codex, Copilot CLI, VS Code Copilot, Cortex Code.
@@ -66,7 +66,7 @@ Each step is designed with the user first (one topic at a time), then built test
 2. [ ] **Password login** ([ADR 0018](adr/0018-password-login.md)):
    - [x] **2a** (released in v0.2.0): first-run setup page, login, sign-out, change own password, `reset-password` command, deny-by-default authorization, local-only port binding. **Released together with step 1.**
    - [ ] **2b:** user management (`/settings/users`), member and admin roles, temporary passwords changed at first sign-in. Disabling a user also stops their API keys (ADR 0019).
-3. [ ] **API keys** ([ADR 0019](adr/0019-api-keys.md)) ← next task: personal keys with one scope each (ingest or read), `/settings/api-keys`, ingest always requires a key, receipts record the sending key, CLI `login` and spool-on-401/403.
+3. [x] **API keys** ([ADR 0019](adr/0019-api-keys.md), released in v0.3.0): personal keys with one scope each (ingest or read), `/settings/api-keys`, ingest always requires a key, receipts record the sending key, CLI `login` and spool-on-401/403.
 4. [ ] **HTTPS**, for reaching a ledger from other machines:
    - the app honors a reverse proxy's forwarded headers (`Secure` cookies, `https` redirects);
    - documented recipes for personal setups: Tailscale (no domain needed), Caddy with your own domain, an existing proxy;
@@ -75,20 +75,23 @@ Each step is designed with the user first (one topic at a time), then built test
    - an **allowlist** of GitHub users or an organization, since GitHub login alone admits any GitHub account;
    - each installation registers its own GitHub OAuth app. Password login remains the default.
 
-## Next task: API keys (Phase 2, step 3)
+## Next task: transcripts (Phase 3)
 
-**Goal:** close ingest to anyone without a key, give scripts read access, and record who sent each event. Decisions: [ADR 0019](adr/0019-api-keys.md).
+**Goal:** the transcript's content (responses, models, token usage) in the ledger, raw and byte-for-byte, seconds after it's written. Decisions: [ADR 0020](adr/0020-transcripts.md). Claude Code only.
 
 **Steps (test-first):**
-1. ✅ CLI: 401/403 keep the event in the spool, with the reason in the log.
-2. ✅ Core: `ApiKey` aggregate (`ApiKeyId`, owner, name, scope, `ApiKeySecretHash`, issued, expiry, last used, revoked) and `ApiKeyToken` (`agl_<scope>_<base62 id>_<base62 secret>`).
-3. ✅ Infrastructure: `api_keys` table; `api_key_id` on `agent_event_receipts` (foreign key, indexed); `ApiKeyQueryService`.
-4. ✅ Use cases: `CreateApiKey`, `ListApiKeys` (own; all for admins), `RevokeApiKey`, `AuthenticateApiKey` (last used at most hourly); ingest records the key; event detail says who sent each receipt.
-5. ✅ Web: `ApiKey` authentication scheme and `Ingest`/`ReadApi`/`AnyApiKey` policies; `GET /api/keys/current`; `/settings/api-keys` and the Settings section; "Sent by" on the event detail page.
-6. ✅ CLI: `agentledger login`, key state in `status`; dev container passes `AGENTLEDGER_API_KEY` from the host (`remoteEnv`).
-7. **Next — rollout:** rerun `.devcontainer/install-agentledger.sh` (new CLI first: older CLIs drop refused events), release v0.3.0 and redeploy, create an ingest key, set `AGENTLEDGER_API_KEY` on the host (or `agentledger login`) and check `agentledger status` shows it accepted.
+1. ✅ Core (`TranscriptAggregate`): `TranscriptFileName` (`main`, `subagents/agent-<id>`, with `SubagentId`), content-derived `TranscriptLineId` and `TranscriptFileId` (SHA-256 of length-prefixed fields, UUID version 8; pinned by values computed independently), `TranscriptLine` and `TranscriptFile`.
+2. ✅ Infrastructure: `transcript_lines` (`text`, line ID as primary key, `byte_offset`, indexed for reading in order) and `transcript_files` (raw subagent meta, filled in once); `ITranscriptStore` write store: one transaction, `unnest` insert with `ON CONFLICT DO NOTHING`, audit timestamps set explicitly.
+3. ✅ Use cases: `IngestTranscriptBatch` (envelope validation, 1–1,000 lines with distinct offsets, meta only for subagents; stored and already-stored counts), `ListTranscriptFiles` (main first, line counts) and `ListTranscriptLines` (keyset on byte offset and line ID) over `ITranscriptQueryService`.
+4. ✅ Web: `POST /transcripts/lines` (ingest key, gzip request decompression, 8 MB limit after decompression answered with 413); `GET /api/raw/transcripts` and `/api/raw/transcripts/lines`; `/raw/sessions/{session}/transcript` (files, TranscriptLines, Formatted/Exact, paging) and links from the event detail page and the session-filtered list.
+5. ✅ CLI: `ITranscriptSource` (Claude Code: `transcript_path`, `agent_transcript_path`, or the subagent folder from `agent_id`); `TranscriptStateStore` (offset, fingerprint, lock file); `TranscriptReader` (complete lines, byte offsets, 1 MB per run, lines over 4 MB skipped and logged, restart on shrink or replacement); batches of 1,000 lines or 4 MB in a separate spool folder, sent gzipped, up to 3 per hook; `flush` and `status` cover them. Also fixed: the CLI wrote its spool into the current directory when `~/.local/share` didn't exist yet (`SpecialFolderOption.DoNotVerify`).
+6. Rollout: install the new CLI, release, redeploy; check the stored lines match the files byte-for-byte, as in the Phase 1 verification.
 
-**Done before (step 2a, released in v0.2.0):** password login ([ADR 0018](adr/0018-password-login.md)).
+## Done before: API keys (Phase 2, step 3)
+
+API keys released in v0.3.0 ([ADR 0019](adr/0019-api-keys.md)); the dev container sends with its own ingest key, and new receipts record it. Remaining Phase 2 work, when needed: 2b (user management), HTTPS (step 4), GitHub login (step 5).
+
+**Known flaky test:** `SetupTests.CreatesTheFirstAdminOnceAndThenDisappears` failed once in a full `dotnet test` run (2026-10-25) and passed in 5 full runs and 3 single runs afterwards; the failure message wasn't kept. When it fails again, keep the full output and find the cause rather than retrying.
 
 **Open question:** a URL that matches no page (e.g. `/raw/events/not-a-guid`) returns 404 with an empty body, because it never reaches Blazor. `UseStatusCodePagesWithReExecute("/not-found")` would fix it but also changes `/api` 404s; decide when convenient.
 
@@ -98,10 +101,7 @@ Each step is designed with the user first (one topic at a time), then built test
 
 ## Later phases (outline)
 
-- **Transcripts (Phase 3):**
-  - The CLI tracks a read offset per `transcript_path` and sends new transcript lines as events.
-  - Subagent transcripts too (`agent_transcript_path` from `SubagentStop`).
-  - Token usage and model per assistant message come from here.
+- **Transcripts (Phase 3):** designed in [ADR 0020](adr/0020-transcripts.md); see "Next task".
 - **Projections (Phase 4):**
   - **Lineage (required):** every projected row stores the IDs of the raw events it was built from, so the UI can link to the evidence ([ADR 0015](adr/0015-web-ui-and-evidence.md)).
   - **Agent events** (`agent_events`): receipts deduplicated by `event_id` with idempotent upserts ([ADR 0010](adr/0010-raw-landing-accepts-duplicates.md)). Probably the first projection, since the others build on it.

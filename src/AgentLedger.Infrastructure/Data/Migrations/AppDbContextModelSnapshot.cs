@@ -205,6 +205,127 @@ namespace AgentLedger.Infrastructure.Data.Migrations
                     b.ToTable("api_keys", (string)null);
                 });
 
+            modelBuilder.Entity("AgentLedger.Core.TranscriptAggregate.TranscriptFile", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Agent")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("agent");
+
+                    b.Property<Guid>("ApiKeyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("api_key_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("File")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("file");
+
+                    b.Property<DateTimeOffset>("FirstSeenAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("first_seen_at");
+
+                    b.Property<string>("Meta")
+                        .HasColumnType("text")
+                        .HasColumnName("meta");
+
+                    b.Property<string>("NativeSessionId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("native_session_id");
+
+                    b.Property<string>("SubagentId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("subagent_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_transcript_files");
+
+                    b.HasIndex("ApiKeyId")
+                        .HasDatabaseName("ix_transcript_files_api_key_id");
+
+                    b.HasIndex("Agent", "NativeSessionId")
+                        .HasDatabaseName("ix_transcript_files_agent_native_session_id");
+
+                    b.ToTable("transcript_files", (string)null);
+                });
+
+            modelBuilder.Entity("AgentLedger.Core.TranscriptAggregate.TranscriptLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Agent")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("agent");
+
+                    b.Property<Guid>("ApiKeyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("api_key_id");
+
+                    b.Property<long>("ByteOffset")
+                        .HasColumnType("bigint")
+                        .HasColumnName("byte_offset");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("File")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("file");
+
+                    b.Property<string>("NativeSessionId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("native_session_id");
+
+                    b.Property<DateTimeOffset>("ReceivedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("received_at");
+
+                    b.Property<string>("SubagentId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("subagent_id");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("text");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_transcript_lines");
+
+                    b.HasIndex("ApiKeyId")
+                        .HasDatabaseName("ix_transcript_lines_api_key_id");
+
+                    b.HasIndex("Agent", "NativeSessionId", "File", "ByteOffset")
+                        .HasDatabaseName("ix_transcript_lines_agent_native_session_id_file_byte_offset");
+
+                    b.ToTable("transcript_lines", (string)null);
+                });
+
             modelBuilder.Entity("AgentLedger.Core.UserAggregate.User", b =>
                 {
                     b.Property<Guid>("Id")
@@ -279,6 +400,26 @@ namespace AgentLedger.Infrastructure.Data.Migrations
                         .HasForeignKey("RevokedBy")
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_api_keys_users_revoked_by");
+                });
+
+            modelBuilder.Entity("AgentLedger.Core.TranscriptAggregate.TranscriptFile", b =>
+                {
+                    b.HasOne("AgentLedger.Core.ApiKeyAggregate.ApiKey", null)
+                        .WithMany()
+                        .HasForeignKey("ApiKeyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_transcript_files_api_keys_api_key_id");
+                });
+
+            modelBuilder.Entity("AgentLedger.Core.TranscriptAggregate.TranscriptLine", b =>
+                {
+                    b.HasOne("AgentLedger.Core.ApiKeyAggregate.ApiKey", null)
+                        .WithMany()
+                        .HasForeignKey("ApiKeyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_transcript_lines_api_keys_api_key_id");
                 });
 #pragma warning restore 612, 618
         }

@@ -27,7 +27,7 @@ internal static class StatusReport
     }
   }
 
-  public static string Render(CliSettings settings, ApiCheck api, Login.ApiKeyCheck? key, SpoolSize spool, string logFile, IReadOnlyList<string> recentLog,
+  public static string Render(CliSettings settings, ApiCheck api, Login.ApiKeyCheck? key, SpoolSize spool, SpoolSize transcriptSpool, int trackedTranscripts, string logFile, IReadOnlyList<string> recentLog,
     IReadOnlyList<string> installedScopes)
   {
     var report = new StringBuilder();
@@ -45,6 +45,8 @@ internal static class StatusReport
     Row(report, "Timeout", $"{settings.Timeout.Value.TotalMilliseconds:0} ms", settings.Timeout.Source);
     Row(report, "Spool", settings.SpoolDirectory.Value, settings.SpoolDirectory.Source);
     Row(report, "", $"{spool.Count} events waiting ({spool.Bytes / 1024.0:0.0} KB)", "");
+    Row(report, "", $"{transcriptSpool.Count} transcript batches waiting ({transcriptSpool.Bytes / (1024.0 * 1024):0.0} MB)", "");
+    Row(report, "", $"{trackedTranscripts} transcript files read", "");
     Row(report, "Log", logFile, "");
     Row(report, "Hooks", installedScopes.Count == 0
       ? "claude-code: not installed (run: agentledger install claude-code)"

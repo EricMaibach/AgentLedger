@@ -22,6 +22,8 @@ internal static class StatusCommand
         ? await Login.ApiKeyCheck.CheckAsync(http, settings.Url.Value, apiKey)
         : null;
       var spool = new EventSpool(settings.SpoolDirectory.Value, SpoolLimits.Default).Measure();
+      var transcriptSpool = new EventSpool(CliPaths.TranscriptSpoolDirectory(settings.SpoolDirectory.Value), SpoolLimits.Transcripts).Measure();
+      var trackedTranscripts = new Transcripts.TranscriptStateStore(CliPaths.TranscriptStateDirectory(environment)).Count();
       var log = new FileLog(CliPaths.LogFile(environment), TimeProvider.System);
 
       var installedScopes = Enum.GetValues<InstallScope>()
@@ -29,7 +31,7 @@ internal static class StatusCommand
         .Select(scope => scope.ToString().ToLowerInvariant())
         .ToList();
 
-      await stdout.WriteAsync(StatusReport.Render(settings, api, key, spool, log.Path, log.ReadLast(5), installedScopes));
+      await stdout.WriteAsync(StatusReport.Render(settings, api, key, spool, transcriptSpool, trackedTranscripts, log.Path, log.ReadLast(5), installedScopes));
       return api.Reachable ? 0 : 1;
     });
 

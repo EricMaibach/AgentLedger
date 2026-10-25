@@ -16,12 +16,14 @@ public sealed class StatusReportRender
     Warnings: warnings ?? []);
 
   private static string Render(CliSettings? settings = null, ApiCheck? api = null, IReadOnlyList<string>? recentLog = null,
-    IReadOnlyList<string>? installedScopes = null, ApiKeyCheck? key = null) =>
+    IReadOnlyList<string>? installedScopes = null, ApiKeyCheck? key = null, SpoolSize? transcriptSpool = null, int trackedTranscripts = 0) =>
     StatusReport.Render(
       settings ?? Settings(),
       api ?? new ApiCheck(Reachable: true, "reachable (12 ms)"),
       key,
       new SpoolSize(Count: 3, Bytes: 2048),
+      transcriptSpool ?? new SpoolSize(Count: 0, Bytes: 0),
+      trackedTranscripts,
       "/home/eric/.local/share/agentledger/agentledger.log",
       recentLog ?? [],
       installedScopes ?? ["user"]);
@@ -52,6 +54,15 @@ public sealed class StatusReportRender
     var key = new ApiKeyCheck(ApiKeyCheckResult.Accepted, "accepted: 'laptop' (ingest, owner eric)", "laptop", "ingest", "eric");
 
     Render(Settings(apiKey: "agl_ingest_x_y"), key: key).ShouldContain("accepted: 'laptop' (ingest, owner eric)");
+  }
+
+  [Fact]
+  public void ShowsTranscriptBatchesWaitingAndFilesBeingRead()
+  {
+    var report = Render(transcriptSpool: new SpoolSize(Count: 4, Bytes: 3 * 1024 * 1024), trackedTranscripts: 7);
+
+    report.ShouldContain("4 transcript batches waiting (3.0 MB)");
+    report.ShouldContain("7 transcript files read");
   }
 
   [Fact]

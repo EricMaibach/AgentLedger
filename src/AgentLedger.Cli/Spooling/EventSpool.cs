@@ -5,6 +5,9 @@ namespace AgentLedger.Cli.Spooling;
 internal sealed record SpoolLimits(int MaxFiles, long MaxBytes)
 {
   public static readonly SpoolLimits Default = new(MaxFiles: 10_000, MaxBytes: 100L * 1024 * 1024);
+
+  // Transcript batches are up to 4 MB each (ADR 0020): room for a long session through a long outage.
+  public static readonly SpoolLimits Transcripts = new(MaxFiles: 10_000, MaxBytes: 1024L * 1024 * 1024);
 }
 
 internal sealed record SpoolSize(int Count, long Bytes);

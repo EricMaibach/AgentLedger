@@ -38,8 +38,13 @@ internal sealed class SystemHostEnvironment : IHostEnvironment
   public string MachineName => Environment.MachineName;
   public string UserName => Environment.UserName;
   public string CurrentDirectory => Environment.CurrentDirectory;
-  public string HomeDirectory => Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-  public string UserConfigDirectory => Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-  public string LocalDataDirectory => Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+  // DoNotVerify: without it, .NET returns "" when the folder doesn't exist yet (e.g. a fresh account without
+  // ~/.local/share), and the CLI would write its spool and log, prompts included, into the current directory.
+  public string HomeDirectory => Folder(Environment.SpecialFolder.UserProfile);
+  public string UserConfigDirectory => Folder(Environment.SpecialFolder.ApplicationData);
+  public string LocalDataDirectory => Folder(Environment.SpecialFolder.LocalApplicationData);
   public string? ProcessPath => Environment.ProcessPath;
+
+  private static string Folder(Environment.SpecialFolder folder) =>
+    Environment.GetFolderPath(folder, Environment.SpecialFolderOption.DoNotVerify);
 }

@@ -1,19 +1,26 @@
-@* Keyset paging (ADR 0016): only "Newer" (back to the first page) and "Older" — no page numbers. *@
+@* Keyset paging (ADR 0016): back to the first page, and the next page; no page numbers. Newest-first lists use
+   "Newer" / "Older"; lists read from the beginning, like a transcript, "Start" / "Next lines" (docs/ui.md). *@
 @if (NewerHref is not null || OlderHref is not null)
 {
   <nav class="pager" aria-label="Pages">
     @if (NewerHref is not null)
     {
-      <a href="@NewerHref">← Newer</a>
+      <a href="@NewerHref">← @FirstLabel</a>
     }
     @if (OlderHref is not null)
     {
-      <a href="@OlderHref" rel="next">Older →</a>
+      <a href="@OlderHref" rel="next">@NextLabel →</a>
     }
   </nav>
 }
 
 @code {
+  /// <summary>Back to the first page.</summary>
   [Parameter] public string? NewerHref { get; set; }
+
+  /// <summary>The next page.</summary>
   [Parameter] public string? OlderHref { get; set; }
+
+  [Parameter] public string FirstLabel { get; set; } = "Newer";
+  [Parameter] public string NextLabel { get; set; } = "Older";
 }

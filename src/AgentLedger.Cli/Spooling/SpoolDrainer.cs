@@ -11,7 +11,7 @@ internal sealed record DrainReport(int Sent, int Rejected, string? StoppedBecaus
 /// malformed → removed and logged; failed → kept, and draining stops, since the API is unavailable.
 /// Used by `hook` (a few per run) and `flush` (everything).
 /// </summary>
-internal sealed class SpoolDrainer(EventSpool spool, IEventSender sender, ICliLog log)
+internal sealed class SpoolDrainer(EventSpool spool, IEventSender sender, ICliLog log, string itemName = "event")
 {
   public async Task<DrainReport> DrainAsync(int? limit, Guid? except, CancellationToken cancellationToken)
   {
@@ -52,10 +52,10 @@ internal sealed class SpoolDrainer(EventSpool spool, IEventSender sender, ICliLo
         break;
       case SendResult.Rejected:
         spool.Remove(eventId); // malformed: resending would be rejected again
-        log.Error($"API rejected event {eventId}; dropped it: {outcome.Detail}");
+        log.Error($"API rejected {itemName} {eventId}; dropped it: {outcome.Detail}");
         break;
       case SendResult.Failed:
-        log.Info($"Not sent yet; event {eventId} stays in the spool: {outcome.Detail}");
+        log.Info($"Not sent yet; {itemName} {eventId} stays in the spool: {outcome.Detail}");
         break;
     }
 

@@ -1,8 +1,10 @@
 ﻿using AgentLedger.Infrastructure.Data;
 using AgentLedger.Infrastructure.Data.Queries;
+using AgentLedger.Infrastructure.Data.Stores;
 using AgentLedger.Infrastructure.Users;
 using AgentLedger.UseCases.AgentEventReceipts.ListRawEvents;
 using AgentLedger.UseCases.ApiKeys;
+using AgentLedger.UseCases.Transcripts;
 using AgentLedger.UseCases.Users;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -37,6 +39,8 @@ public static class InfrastructureServiceExtensions
            .AddScoped(typeof(IReadRepository<>), typeof(EfRepository<>));
     services.AddScoped<IRawEventQueryService, RawEventQueryService>();
     services.AddScoped<IApiKeyQueryService, ApiKeyQueryService>();
+    services.AddScoped<ITranscriptStore, TranscriptStore>();
+    services.AddScoped<ITranscriptQueryService, TranscriptQueryService>();
     services.AddSingleton<IPasswordHasher, IdentityPasswordHasher>();
 
     logger.LogInformation("{Project} services registered", "Infrastructure");

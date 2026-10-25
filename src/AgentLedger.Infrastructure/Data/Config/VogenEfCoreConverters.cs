@@ -1,5 +1,6 @@
 ﻿using AgentLedger.Core.AgentEventReceiptAggregate;
 using AgentLedger.Core.ApiKeyAggregate;
+using AgentLedger.Core.TranscriptAggregate;
 using AgentLedger.Core.UserAggregate;
 using Vogen;
 
@@ -14,4 +15,7 @@ namespace AgentLedger.Infrastructure.Data.Config;
 [EfCoreConverter<SecurityStamp>]
 [EfCoreConverter<ApiKeyId>]
 [EfCoreConverter<ApiKeySecretHash>]
+[EfCoreConverter<TranscriptLineId>]
+[EfCoreConverter<TranscriptFileId>]
+[EfCoreConverter<TranscriptFileName>]
 internal sealed partial class VogenEfCoreConverters;

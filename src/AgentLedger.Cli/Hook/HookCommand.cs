@@ -4,6 +4,7 @@ using AgentLedger.Cli.Envelope;
 using AgentLedger.Cli.Logging;
 using AgentLedger.Cli.Sending;
 using AgentLedger.Cli.Spooling;
+using AgentLedger.Cli.Transcripts;
 
 namespace AgentLedger.Cli.Hook;
 
@@ -30,6 +31,15 @@ internal static class HookCommand
     return command;
   }
 
+  public static TranscriptPipeline Transcripts(string agent, IHostEnvironment environment, CliSettings settings, HttpClient http, ICliLog log)
+  {
+    var spool = new EventSpool(CliPaths.TranscriptSpoolDirectory(settings.SpoolDirectory.Value), SpoolLimits.Transcripts);
+    return new TranscriptPipeline(
+      new TranscriptCatchUp(agent, TranscriptSources.For(agent), new TranscriptStateStore(CliPaths.TranscriptStateDirectory(environment)),
+        new TranscriptReader(TranscriptReader.DefaultMaxChunkBytes, TranscriptReader.DefaultMaxLineBytes, log), spool, log),
+      new SpoolDrainer(spool, new HttpTranscriptSender(http, settings.Url.Value, settings.ApiKey.Value), log, itemName: "transcript batch"));
+  }
+
   private static async Task RunAsync(string agent, IHostEnvironment environment, TextReader stdin, CancellationToken cancellationToken)
   {
     var clock = TimeProvider.System;
@@ -49,7 +59,8 @@ internal static class HookCommand
         new EnvelopeBuilder(environment, clock),
         new EventSpool(settings.SpoolDirectory.Value, SpoolLimits.Default),
         new HttpEventSender(http, settings.Url.Value, settings.ApiKey.Value),
-        log);
+        log,
+        transcripts: Transcripts(agent, environment, settings, http, log));
 
       await runner.RunAsync(agent, payload, cancellationToken);
     }
