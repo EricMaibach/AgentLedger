@@ -1,6 +1,7 @@
 ﻿using System.CommandLine;
 using AgentLedger.Cli.Configuration;
 using AgentLedger.Cli.Envelope;
+using AgentLedger.Cli.Git;
 using AgentLedger.Cli.Logging;
 using AgentLedger.Cli.Sending;
 using AgentLedger.Cli.Spooling;
@@ -40,6 +41,15 @@ internal static class HookCommand
       new SpoolDrainer(spool, new HttpTranscriptSender(http, settings.Url.Value, settings.ApiKey.Value), log, itemName: "transcript batch"));
   }
 
+  public static GitPipeline Git(IHostEnvironment environment, CliSettings settings, HttpClient http, ICliLog log)
+  {
+    var spool = new EventSpool(CliPaths.GitSpoolDirectory(settings.SpoolDirectory.Value), SpoolLimits.Default);
+    return new GitPipeline(
+      new GitCommitCatchUp(new ProcessGitRunner(), new GitRepositoryStateStore(CliPaths.GitStateDirectory(environment)), spool, log,
+        TimeProvider.System, HostName.For(environment)),
+      new SpoolDrainer(spool, new HttpGitSender(http, settings.Url.Value, settings.ApiKey.Value), log, itemName: "git batch"));
+  }
+
   private static async Task RunAsync(string agent, IHostEnvironment environment, TextReader stdin, CancellationToken cancellationToken)
   {
     var clock = TimeProvider.System;
@@ -60,7 +70,9 @@ internal static class HookCommand
         new EventSpool(settings.SpoolDirectory.Value, SpoolLimits.Default),
         new HttpEventSender(http, settings.Url.Value, settings.ApiKey.Value),
         log,
-        transcripts: Transcripts(agent, environment, settings, http, log));
+        transcripts: Transcripts(agent, environment, settings, http, log),
+        git: Git(environment, settings, http, log),
+        projectDirectory: AgentProfile.For(agent).ResolveProjectDirectory(environment));
 
       await runner.RunAsync(agent, payload, cancellationToken);
     }

@@ -12,7 +12,7 @@ namespace AgentLedger.Cli.Hook;
 /// throws: whatever goes wrong is logged, and the agent is never disrupted.
 /// </summary>
 internal sealed class HookRunner(EnvelopeBuilder builder, EventSpool spool, IEventSender sender, ICliLog log, int resendLimit = HookRunner.DefaultResendLimit,
-  Transcripts.TranscriptPipeline? transcripts = null)
+  Transcripts.TranscriptPipeline? transcripts = null, Git.GitPipeline? git = null, string? projectDirectory = null)
 {
   public const int DefaultResendLimit = 5;
 
@@ -43,13 +43,31 @@ internal sealed class HookRunner(EnvelopeBuilder builder, EventSpool spool, IEve
         log.Error($"hook {agent}: reading the transcript failed: {ex}");
       }
 
-      // The API answered, so it's reachable: send a few older events and transcript batches too (bounded, to stay quick).
+      // Then new commits in the project's repository (ADR 0021): again never at the expense of the event.
+      if (git is not null && projectDirectory is not null)
+      {
+        try
+        {
+          await git.CatchUpAsync(projectDirectory);
+        }
+        catch (Exception ex)
+        {
+          log.Error($"hook {agent}: recording new commits failed: {ex}");
+        }
+      }
+
+      // The API answered, so it's reachable: send a few older events, transcript and git batches too (bounded, to stay quick).
       if (outcome.Result != SendResult.Failed)
       {
         await _drainer.DrainAsync(resendLimit, except: envelope.EventId, cancellationToken);
         if (transcripts is not null)
         {
           await transcripts.SendAsync(Transcripts.TranscriptPipeline.SendLimitPerHook, cancellationToken);
+        }
+
+        if (git is not null)
+        {
+          await git.SendAsync(Git.GitPipeline.SendLimitPerHook, cancellationToken);
         }
       }
     }

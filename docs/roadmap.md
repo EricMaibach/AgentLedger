@@ -80,8 +80,8 @@ Each step is designed with the user first (one topic at a time), then built test
 **Goal:** capture which commit each event was based on, and the repository's commits and tags as they appear, so Phase 4 can group work by commits and releases. Capture can't be backfilled, so it comes first. Decisions: [ADR 0021](adr/0021-git-context.md).
 
 **Steps (test-first):**
-1. ✅ `HEAD` on every event: `gitCommit` read from `.git` in the CLI (loose or packed ref, detached `HEAD`, worktrees; none on a branch with no commits), envelope field (ADR 0011), `CaptureContext.GitCommit` (full lowercase hash, else 400) and `context_git_commit`, shown on the event page.
-2. Commit records: per-worktree state and lock; `git log` when `HEAD` moved (baseline on first sight, 200 commits per run, 1,000 files per commit); `git_commits` table and `POST /git/observations`.
+1. ✅ (released in v0.4.2, 2026-10-26; the dev container's events record their commit) `HEAD` on every event: `gitCommit` read from `.git` in the CLI (loose or packed ref, detached `HEAD`, worktrees; none on a branch with no commits), envelope field (ADR 0011), `CaptureContext.GitCommit` (full lowercase hash, else 400) and `context_git_commit`, shown on the event page.
+2. ✅ Commit records: per-worktree state and lock (`GitRepositoryStateStore`); when `HEAD` moved, `git rev-list --reverse --since=<baseline>` then `git log -z --name-status` for at most 200 commits, oldest first (baseline on first sight, 1,000 files per commit, 2 s timeout); a `spool/git/` folder; `git_commits` table (`GitCommit`, content-derived ID from repository and hash) with `IGitObservationStore`; `POST /git/observations`; `status` and `flush` cover it. Repositories without a remote are named `<host>:<working tree>`, with the same host as events (`AGENTLEDGER_HOST`). Release order: server first (an old server answers 404, and the CLI drops the batch).
 3. Tag observations: tag-file fingerprint; `git for-each-ref` when it changed (existing tags in the baseline); `git_tag_observations` table.
 4. Rollout and a check against `git log` and `git tag` in this repository.
 

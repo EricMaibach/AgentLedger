@@ -19,7 +19,8 @@ internal static class FlushCommand
       var settings = new SettingsLoader(environment).Load(environment.CurrentDirectory);
       var spool = new EventSpool(settings.SpoolDirectory.Value, SpoolLimits.Default);
       var transcriptSpool = new EventSpool(CliPaths.TranscriptSpoolDirectory(settings.SpoolDirectory.Value), SpoolLimits.Transcripts);
-      if (spool.Measure().Count == 0 && transcriptSpool.Measure().Count == 0)
+      var gitSpool = new EventSpool(CliPaths.GitSpoolDirectory(settings.SpoolDirectory.Value), SpoolLimits.Default);
+      if (spool.Measure().Count == 0 && transcriptSpool.Measure().Count == 0 && gitSpool.Measure().Count == 0)
       {
         await stdout.WriteLineAsync("Nothing waiting.");
         return 0;
@@ -56,6 +57,24 @@ internal static class FlushCommand
       else
       {
         remaining += transcriptSpool.Measure().Count;
+      }
+
+      // Git batches likewise, once events are through.
+      if (report.StoppedBecause is null && gitSpool.Measure().Count > 0)
+      {
+        var gitReport = await HookCommand.Git(environment, settings, http, log).SendAsync(limit: null, cancellationToken);
+        var gitRemaining = gitSpool.Measure().Count;
+        await stdout.WriteLineAsync($"Git batches: sent {gitReport.Sent}; {gitRemaining} still waiting.");
+        if (gitReport.StoppedBecause is { } gitReason)
+        {
+          await stdout.WriteLineAsync($"Stopped: {gitReason}.");
+        }
+
+        remaining += gitRemaining;
+      }
+      else
+      {
+        remaining += gitSpool.Measure().Count;
       }
 
       return remaining == 0 ? 0 : 1;

@@ -16,7 +16,8 @@ public sealed class StatusReportRender
     Warnings: warnings ?? []);
 
   private static string Render(CliSettings? settings = null, ApiCheck? api = null, IReadOnlyList<string>? recentLog = null,
-    IReadOnlyList<string>? installedScopes = null, ApiKeyCheck? key = null, SpoolSize? transcriptSpool = null, int trackedTranscripts = 0) =>
+    IReadOnlyList<string>? installedScopes = null, ApiKeyCheck? key = null, SpoolSize? transcriptSpool = null, int trackedTranscripts = 0,
+    SpoolSize? gitSpool = null, int watchedRepositories = 0) =>
     StatusReport.Render(
       settings ?? Settings(),
       api ?? new ApiCheck(Reachable: true, "reachable (12 ms)"),
@@ -24,6 +25,8 @@ public sealed class StatusReportRender
       new SpoolSize(Count: 3, Bytes: 2048),
       transcriptSpool ?? new SpoolSize(Count: 0, Bytes: 0),
       trackedTranscripts,
+      gitSpool ?? new SpoolSize(Count: 0, Bytes: 0),
+      watchedRepositories,
       "/home/eric/.local/share/agentledger/agentledger.log",
       recentLog ?? [],
       installedScopes ?? ["user"]);
@@ -63,6 +66,15 @@ public sealed class StatusReportRender
 
     report.ShouldContain("4 transcript batches waiting (3.0 MB)");
     report.ShouldContain("7 transcript files read");
+  }
+
+  [Fact]
+  public void ShowsGitBatchesWaitingAndRepositoriesWatched()
+  {
+    var report = Render(gitSpool: new SpoolSize(Count: 2, Bytes: 2048), watchedRepositories: 3);
+
+    report.ShouldContain("2 git batches waiting (2.0 KB)");
+    report.ShouldContain("3 repositories watched for commits");
   }
 
   [Fact]

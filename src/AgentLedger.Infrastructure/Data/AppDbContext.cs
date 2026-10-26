@@ -1,5 +1,6 @@
 ﻿using AgentLedger.Core.AgentEventReceiptAggregate;
 using AgentLedger.Core.ApiKeyAggregate;
+using AgentLedger.Core.GitAggregate;
 using AgentLedger.Core.TranscriptAggregate;
 using AgentLedger.Core.UserAggregate;
 
@@ -17,6 +18,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
   public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
   public DbSet<TranscriptLine> TranscriptLines => Set<TranscriptLine>();
   public DbSet<TranscriptFile> TranscriptFiles => Set<TranscriptFile>();
+  public DbSet<GitCommit> GitCommits => Set<GitCommit>();
 
   protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder) =>
     configurationBuilder.Conventions.Add(_ => new AuditTimestampsConvention());

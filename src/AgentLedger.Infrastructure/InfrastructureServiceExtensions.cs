@@ -4,6 +4,7 @@ using AgentLedger.Infrastructure.Data.Stores;
 using AgentLedger.Infrastructure.Users;
 using AgentLedger.UseCases.AgentEventReceipts.ListRawEvents;
 using AgentLedger.UseCases.ApiKeys;
+using AgentLedger.UseCases.Git;
 using AgentLedger.UseCases.Transcripts;
 using AgentLedger.UseCases.Users;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -40,6 +41,7 @@ public static class InfrastructureServiceExtensions
     services.AddScoped<IRawEventQueryService, RawEventQueryService>();
     services.AddScoped<IApiKeyQueryService, ApiKeyQueryService>();
     services.AddScoped<ITranscriptStore, TranscriptStore>();
+    services.AddScoped<IGitObservationStore, GitObservationStore>();
     services.AddScoped<ITranscriptQueryService, TranscriptQueryService>();
     services.AddSingleton<IPasswordHasher, IdentityPasswordHasher>();
 

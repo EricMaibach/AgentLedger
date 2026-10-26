@@ -71,6 +71,7 @@ agentledger status                       # configuration, API reachability, key 
 
 - **An ingest key is required** to send events ([ADR 0019](docs/adr/0019-api-keys.md)). Keys are personal: create your own in the web UI. `login` checks it with the ledger and saves it in your user config file; `AGENTLEDGER_API_KEY` works too. Without a valid key, events wait in the spool.
 - **Transcripts too** ([ADR 0020](docs/adr/0020-transcripts.md)): each hook also sends the new lines of the session's transcript (and subagents'), read where it stopped last time. They wait in the spool like events, and `status` shows how many batches are waiting.
+- **Git context** ([ADR 0021](docs/adr/0021-git-context.md)): each event records the checked-out commit, and when it changes, the new commits (message, changed files) are sent too, read with `git log`. Nothing to set up; history from before the CLI first saw a repository isn't sent.
 - **`hook <agent>`** is what the installed hooks call. It's silent and always exits 0, so it never disrupts the agent. If the API is unavailable, events wait in a local spool and are sent later, or right away with `agentledger flush`.
 - **Pointing at another API:** set `AGENTLEDGER_URL`, or add `{ "url": "..." }` to `.agentledger.json` in a project.
 - **Opting a project out:** add `{ "enabled": false }` to that project's `.agentledger.json`.

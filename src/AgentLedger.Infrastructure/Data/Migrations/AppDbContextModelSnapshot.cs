@@ -209,6 +209,79 @@ namespace AgentLedger.Infrastructure.Data.Migrations
                     b.ToTable("api_keys", (string)null);
                 });
 
+            modelBuilder.Entity("AgentLedger.Core.GitAggregate.GitCommit", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ApiKeyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("api_key_id");
+
+                    b.Property<DateTimeOffset>("AuthoredAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("authored_at");
+
+                    b.Property<DateTimeOffset>("CommittedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("committed_at");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Files")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("files");
+
+                    b.Property<bool>("FilesTruncated")
+                        .HasColumnType("boolean")
+                        .HasColumnName("files_truncated");
+
+                    b.Property<string>("Hash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("hash");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("message");
+
+                    b.Property<string[]>("ParentHashes")
+                        .IsRequired()
+                        .HasColumnType("text[]")
+                        .HasColumnName("parent_hashes");
+
+                    b.Property<DateTimeOffset>("ReceivedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("received_at");
+
+                    b.Property<string>("Repository")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("repository");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_git_commits");
+
+                    b.HasIndex("ApiKeyId")
+                        .HasDatabaseName("ix_git_commits_api_key_id");
+
+                    b.HasIndex("Repository", "CommittedAt")
+                        .HasDatabaseName("ix_git_commits_repository_committed_at");
+
+                    b.ToTable("git_commits", (string)null);
+                });
+
             modelBuilder.Entity("AgentLedger.Core.TranscriptAggregate.TranscriptFile", b =>
                 {
                     b.Property<Guid>("Id")
@@ -411,6 +484,16 @@ namespace AgentLedger.Infrastructure.Data.Migrations
                         .HasForeignKey("RevokedBy")
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_api_keys_users_revoked_by");
+                });
+
+            modelBuilder.Entity("AgentLedger.Core.GitAggregate.GitCommit", b =>
+                {
+                    b.HasOne("AgentLedger.Core.ApiKeyAggregate.ApiKey", null)
+                        .WithMany()
+                        .HasForeignKey("ApiKeyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_git_commits_api_keys_api_key_id");
                 });
 
             modelBuilder.Entity("AgentLedger.Core.TranscriptAggregate.TranscriptFile", b =>

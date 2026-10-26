@@ -2,9 +2,9 @@
 using System.Security.Cryptography;
 using System.Text;
 
-namespace AgentLedger.Core.TranscriptAggregate;
+namespace AgentLedger.Core;
 
-// IDs computed from what identifies a thing (ADR 0020), so anyone reading the same line gets the same ID.
+// IDs computed from what identifies a thing (ADR 0020, ADR 0021), so anyone observing the same thing gets the same ID.
 // SHA-256 over the kind and length-prefixed fields (so fields can't run into each other), first 16 bytes,
 // formatted as a version 8 UUID (the version for application-defined IDs). Stored IDs depend on this:
 // never change it.

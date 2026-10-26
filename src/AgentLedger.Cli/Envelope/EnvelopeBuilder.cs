@@ -22,7 +22,7 @@ internal sealed class EnvelopeBuilder(IHostEnvironment environment, TimeProvider
       EventType: eventType,
       NativeSessionId: sessionId,
       CapturedAt: capturedAt,
-      Host: NonEmpty(environment.GetVariable("AGENTLEDGER_HOST")) ?? environment.MachineName,
+      Host: HostName.For(environment),
       User: ResolveUser(projectDir),
       ProjectDir: projectDir,
       GitRepo: git.Repo,
