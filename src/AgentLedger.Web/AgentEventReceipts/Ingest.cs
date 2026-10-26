@@ -53,7 +53,8 @@ public sealed class Ingest(IMediator mediator)
       request.GitWorktree,
       request.Tags ?? [],
       RawPayload(request.Payload),
-      SendingKeyId());
+      SendingKeyId(),
+      request.GitCommit);
 
     var result = await mediator.Send(command, cancellationToken);
 

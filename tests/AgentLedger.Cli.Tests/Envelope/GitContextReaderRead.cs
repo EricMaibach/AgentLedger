@@ -89,6 +89,75 @@ public sealed class GitContextReaderRead : IDisposable
     context.Worktree.ShouldBe(worktree);
   }
 
+  private const string CommitA = "2376609a3f019662cf2f5324c09cdb4b61e3be1e";
+  private const string CommitB = "4c49c1ea57c878d3a185d98340c599d6afffe9bd";
+
+  [Fact]
+  public void ReadsTheCommitTheBranchPointsAt()
+  {
+    // HEAD names the branch; the branch's own file holds the commit (ADR 0021).
+    var repo = CreateRepo();
+    _dir.Write("repo/.git/refs/heads/main", CommitA + "\n");
+
+    GitContextReader.Read(repo).Commit.ShouldBe(CommitA);
+  }
+
+  [Fact]
+  public void ReadsAPackedBranch()
+  {
+    // After `git gc`, branches live in packed-refs instead of their own files.
+    var repo = CreateRepo();
+    _dir.Write("repo/.git/packed-refs", $"# pack-refs with: peeled fully-peeled sorted\n{CommitB} refs/heads/other\n{CommitA} refs/heads/main\n");
+
+    GitContextReader.Read(repo).Commit.ShouldBe(CommitA);
+  }
+
+  [Fact]
+  public void PrefersTheBranchFileOverAnOlderPackedEntry()
+  {
+    // A commit after packing updates the loose file; packed-refs keeps the old value.
+    var repo = CreateRepo();
+    _dir.Write("repo/.git/packed-refs", $"{CommitB} refs/heads/main\n");
+    _dir.Write("repo/.git/refs/heads/main", CommitA + "\n");
+
+    GitContextReader.Read(repo).Commit.ShouldBe(CommitA);
+  }
+
+  [Fact]
+  public void ReadsTheCommitWhenHeadIsDetached()
+  {
+    var repo = CreateRepo(head: CommitA + "\n");
+
+    GitContextReader.Read(repo).Commit.ShouldBe(CommitA);
+  }
+
+  [Fact]
+  public void LeavesTheCommitEmptyOnABranchWithNoCommitsYet()
+  {
+    GitContextReader.Read(CreateRepo()).Commit.ShouldBeNull();
+  }
+
+  [Fact]
+  public void ReadsALinkedWorktreesCommitFromTheSharedRefs()
+  {
+    var main = CreateRepo("main");
+    _dir.Write("main/.git/refs/heads/story-123", CommitB + "\n");
+    _dir.Write("main/.git/worktrees/story-123/HEAD", "ref: refs/heads/story-123\n");
+    _dir.Write("main/.git/worktrees/story-123/commondir", "../..\n");
+    _dir.Write("story-123/.git", $"gitdir: {System.IO.Path.Combine(main, ".git", "worktrees", "story-123")}\n");
+
+    GitContextReader.Read(System.IO.Path.Combine(_dir.Path, "story-123")).Commit.ShouldBe(CommitB);
+  }
+
+  [Fact]
+  public void IgnoresSomethingThatIsNotACommitHash()
+  {
+    var repo = CreateRepo();
+    _dir.Write("repo/.git/refs/heads/main", "not a hash\n");
+
+    GitContextReader.Read(repo).Commit.ShouldBeNull();
+  }
+
   [Fact]
   public void NeverThrowsOnAMalformedRepository()
   {

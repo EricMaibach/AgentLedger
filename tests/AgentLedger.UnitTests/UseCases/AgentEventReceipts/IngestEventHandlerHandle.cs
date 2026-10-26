@@ -53,6 +53,22 @@ public sealed class IngestEventHandlerHandle
   }
 
   [Fact]
+  public async Task KeepsTheCheckedOutCommit()
+  {
+    await _handler.Handle(ValidCommand() with { GitCommit = "2376609a3f019662cf2f5324c09cdb4b61e3be1e" }, CancellationToken.None);
+
+    _saved.ShouldNotBeNull().Context.GitCommit.ShouldBe("2376609a3f019662cf2f5324c09cdb4b61e3be1e");
+  }
+
+  [Fact]
+  public async Task RejectsAnInvalidCommitByItsFieldName()
+  {
+    var result = await _handler.Handle(ValidCommand() with { GitCommit = "not-a-hash" }, CancellationToken.None);
+
+    result.ValidationErrors.ShouldHaveSingleItem().Identifier.ShouldBe("gitCommit");
+  }
+
+  [Fact]
   public async Task RecordsTheKeyTheEventWasSentWith()
   {
     await _handler.Handle(ValidCommand(), CancellationToken.None);

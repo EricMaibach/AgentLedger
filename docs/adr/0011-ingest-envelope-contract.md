@@ -24,6 +24,7 @@ The `agentledger` CLI sends one HTTP request per hook invocation to `POST /event
   "gitRepo": "github.com/EricMaibach/AgentLedger",
   "gitBranch": "main",
   "gitWorktree": null,
+  "gitCommit": "2376609a3f019662cf2f5324c09cdb4b61e3be1e",
   "tags": { "story": "123" },
   "payload": { "session_id": "3829bce8-...", "hook_event_name": "PreToolUse", "...": "..." }
 }
@@ -32,6 +33,7 @@ The `agentledger` CLI sends one HTTP request per hook invocation to `POST /event
 - **`eventId`:** a client-generated UUIDv7, the same for every resend of the event.
 - **`agent`:** **kebab-case** (`claude-code`, `codex`, `copilot-cli`, `vs-code-copilot`, `cortex-code`), the same string as the CLI argument in `agentledger hook claude-code`. The API maps it to the stored `AgentKind` name (`ClaudeCode`).
 - **Required:** `eventId`, `agent`, `eventType`, `capturedAt`, `host`, `user`, `projectDir`, `payload`. Optional: `nativeSessionId`, the git fields, and `tags` (missing means none).
+- **`gitCommit`** (added 2026-10-26, [ADR 0021](0021-git-context.md)): the checked-out commit (`HEAD`), a full hash in lowercase hex; anything else is a 400 keyed `gitCommit`. Older CLIs omit it.
 - **`payload`:** the hook's stdin, embedded as **raw JSON** (not a JSON-encoded string). The API stores its exact text, whitespace and key order included.
 
 **Responses:**

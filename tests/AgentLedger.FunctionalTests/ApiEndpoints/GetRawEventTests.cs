@@ -28,6 +28,17 @@ public sealed class GetRawEventTests(CustomWebApplicationFactory<Program> factor
   }
 
   [Fact]
+  public async Task ReturnsTheCommitTheEventWasBasedOn()
+  {
+    var eventId = Guid.CreateVersion7();
+    await SendAsync(TestEnvelope.Json(eventId: eventId, gitCommit: "2376609a3f019662cf2f5324c09cdb4b61e3be1e"));
+
+    var json = System.Text.Json.JsonDocument.Parse(await _client.GetStringAsync($"/api/raw/events/{eventId}")).RootElement;
+
+    json.GetProperty("gitCommit").GetString().ShouldBe("2376609a3f019662cf2f5324c09cdb4b61e3be1e");
+  }
+
+  [Fact]
   public async Task ReturnsAStoredEventWithEveryReceipt()
   {
     var eventId = Guid.CreateVersion7();

@@ -16,7 +16,8 @@ internal static class TestEnvelope
     string? host = "devbox",
     bool includeTags = true,
     bool includePayload = true,
-    string payloadJson = DefaultPayload)
+    string payloadJson = DefaultPayload,
+    string? gitCommit = null)
   {
     var envelope = new JsonObject
     {
@@ -31,6 +32,10 @@ internal static class TestEnvelope
       ["gitRepo"] = "github.com/EricMaibach/AgentLedger",
       ["gitBranch"] = "main",
     };
+    if (gitCommit is not null)
+    {
+      envelope["gitCommit"] = gitCommit;
+    }
     if (includeTags)
     {
       envelope["tags"] = new JsonObject { ["story"] = "123" };

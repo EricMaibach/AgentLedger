@@ -25,6 +25,7 @@ internal static class EnvelopeJson
       json.WriteString("gitRepo", envelope.GitRepo);
       json.WriteString("gitBranch", envelope.GitBranch);
       json.WriteString("gitWorktree", envelope.GitWorktree);
+      json.WriteString("gitCommit", envelope.GitCommit);
 
       json.WriteStartObject("tags");
       foreach (var (key, value) in envelope.Tags)

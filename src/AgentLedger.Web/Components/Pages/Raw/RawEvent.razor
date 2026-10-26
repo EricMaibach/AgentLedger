@@ -49,6 +49,17 @@
       <dd>@(Detail.GitBranch ?? "—")</dd>
       <dt>Git worktree</dt>
       <dd>@(Detail.GitWorktree ?? "—")</dd>
+      <dt>Git commit</dt>
+      <dd>
+        @if (Detail.GitCommit is { } commit)
+        {
+          <code>@commit</code> <CopyButton Text="@commit" Label="Copy commit" />
+        }
+        else
+        {
+          <span class="muted">—</span>
+        }
+      </dd>
     </dl>
   </section>
 

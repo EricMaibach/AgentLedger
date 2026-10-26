@@ -22,7 +22,7 @@ public sealed class IngestEventHandler(IRepository<AgentEventReceipt> repository
     try
     {
       var context = new CaptureContext(command.Host, command.User, command.ProjectDir, command.GitRepo, command.GitBranch,
-      command.GitWorktree);
+        command.GitWorktree, command.GitCommit);
 
       receipt = new AgentEventReceipt(
           ReceiptId.From(Guid.CreateVersion7()),

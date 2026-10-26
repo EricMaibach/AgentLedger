@@ -13,5 +13,6 @@ internal sealed record EventEnvelope(
   string? GitRepo,
   string? GitBranch,
   string? GitWorktree,
+  string? GitCommit,
   IReadOnlyDictionary<string, string> Tags,
   string Payload);

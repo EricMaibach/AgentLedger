@@ -27,6 +27,9 @@ public sealed class IngestEventRequest
   public string? GitBranch { get; set; }
   public string? GitWorktree { get; set; }
 
+  /// <summary>The checked-out commit (HEAD) the work was based on: a full hash in lowercase hex (ADR 0021).</summary>
+  public string? GitCommit { get; set; }
+
   /// <summary>From <c>AGENTLEDGER_TAG_*</c>; optional.</summary>
   public Dictionary<string, string>? Tags { get; set; }
 

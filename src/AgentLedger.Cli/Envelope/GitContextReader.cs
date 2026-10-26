@@ -1,6 +1,6 @@
 ﻿namespace AgentLedger.Cli.Envelope;
 
-// Reads branch, origin and worktree straight from the .git files. No `git` process: spawning one
+// Reads branch, commit, origin and worktree straight from the .git files. No `git` process: spawning one
 // costs 5-20 ms per call on every hook, and git may not even be installed (ADR 0012).
 // Never throws: a broken repository must never break the agent's hook.
 internal static class GitContextReader
@@ -21,7 +21,8 @@ internal static class GitContextReader
       return new GitContext(
         Repo: origin is null ? null : NormalizeRemote(origin),
         Branch: ReadBranch(Path.Combine(gitDir, "HEAD")),
-        Worktree: linkedWorktree);
+        Worktree: linkedWorktree,
+        Commit: ReadCommit(gitDir, commonDir));
     }
     catch (Exception ex) when (IsUnreadableRepository(ex))
     {
@@ -95,6 +96,53 @@ internal static class GitContextReader
     var head = File.ReadAllText(headPath).Trim();
     return head.StartsWith(prefix, StringComparison.Ordinal) ? head[prefix.Length..] : null;
   }
+
+  // The checked-out commit (ADR 0021): HEAD holds a hash when detached, otherwise names a ref. A ref is its own
+  // file (in this worktree's git dir, or the shared one for branches), or a line in packed-refs after `git gc`;
+  // the file wins, since a commit after packing updates only the file. Null on a branch with no commits yet.
+  private static string? ReadCommit(string gitDir, string commonDir)
+  {
+    var headPath = Path.Combine(gitDir, "HEAD");
+    if (!File.Exists(headPath))
+    {
+      return null;
+    }
+
+    var head = File.ReadAllText(headPath).Trim();
+    if (!head.StartsWith("ref: ", StringComparison.Ordinal))
+    {
+      return AsCommit(head);
+    }
+
+    var name = head["ref: ".Length..];
+    foreach (var dir in new[] { gitDir, commonDir })
+    {
+      var refFile = Path.Combine(dir, name);
+      if (File.Exists(refFile))
+      {
+        return AsCommit(File.ReadAllText(refFile).Trim());
+      }
+    }
+
+    var packedRefs = Path.Combine(commonDir, "packed-refs");
+    if (File.Exists(packedRefs))
+    {
+      foreach (var line in File.ReadLines(packedRefs))
+      {
+        // "<hash> <ref>"; "#" lines are a header, "^" lines peel the tag above.
+        if (line.Split(' ') is [var hash, var refName] && refName == name)
+        {
+          return AsCommit(hash);
+        }
+      }
+    }
+
+    return null;
+  }
+
+  // SHA-1 (40) or SHA-256 (64) object names, lowercase hex as git writes them.
+  private static string? AsCommit(string value) =>
+    value.Length is 40 or 64 && value.All(char.IsAsciiHexDigitLower) ? value : null;
 
   private static bool IsUnreadableRepository(Exception ex) =>
     ex is IOException or UnauthorizedAccessException or ArgumentException or InvalidDataException;

@@ -20,6 +20,7 @@ public sealed class EnvelopeJsonWrite
     GitRepo: "github.com/owner/repo",
     GitBranch: "main",
     GitWorktree: null,
+    GitCommit: "2376609a3f019662cf2f5324c09cdb4b61e3be1e",
     Tags: new Dictionary<string, string> { ["story"] = "123" },
     Payload: payload);
 
@@ -42,6 +43,7 @@ public sealed class EnvelopeJsonWrite
     root.GetProperty("gitRepo").GetString().ShouldBe("github.com/owner/repo");
     root.GetProperty("gitBranch").GetString().ShouldBe("main");
     root.GetProperty("gitWorktree").ValueKind.ShouldBe(JsonValueKind.Null);
+    root.GetProperty("gitCommit").GetString().ShouldBe("2376609a3f019662cf2f5324c09cdb4b61e3be1e");
     root.GetProperty("tags").GetProperty("story").GetString().ShouldBe("123");
   }
 

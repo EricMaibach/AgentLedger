@@ -24,5 +24,6 @@ Each file records one significant decision: the context, what was decided, and t
 | [0018](0018-password-login.md) | Password login: own User aggregate, deny by default, time-limited first-run setup page, local-only port by default | Accepted |
 | [0019](0019-api-keys.md) | API keys: personal, one scope each (ingest/read), SHA-256 hashed; ingest always requires one; receipts record the sending key | Accepted |
 | [0020](0020-transcripts.md) | Transcripts: own raw tables (lines, files), each line stored once by content-hashed ID, read by the CLI on every hook, sent in gzipped batches | Accepted |
+| [0021](0021-git-context.md) | Git context: `HEAD` on every event; commits and tags observed from the local repository when they change; no git hooks or host APIs | Accepted |
 
 New ADRs: copy the structure of an existing one (Status, Context, Decision, Consequences) and use the next number.

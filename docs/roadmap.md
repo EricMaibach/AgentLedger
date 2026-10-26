@@ -25,7 +25,7 @@ agent hook ──stdin──► agentledger CLI ──HTTP──► API ──�
 
 1. **Capture.** Every hook event from Claude Code lands in Postgres as a raw event. Done, apart from final verification; the stable ledger records this project's own development.
 2. **Visibility and access (released in v0.2.0 and v0.3.0; user management, HTTPS and GitHub login when needed).** People and AI can see what was logged without direct database access, and every entry point is authenticated. A web UI (raw event explorer) and read API, password login, scoped API keys (ingest required on `POST /events`), HTTPS, and optional GitHub login. Pulled ahead of transcripts: without it there's no way to view or validate the ledger, and ingest is currently open to the network.
-3. **Transcripts (next).** The CLI reads agent transcripts incrementally on every hook, capturing assistant responses, reasoning (where present) and per-response token usage, which hooks don't expose ([ADR 0020](adr/0020-transcripts.md)).
+3. **Transcripts (released in v0.4.0 and v0.4.1).** The CLI reads agent transcripts incrementally on every hook, capturing assistant responses, reasoning (where present) and per-response token usage, which hooks don't expose ([ADR 0020](adr/0020-transcripts.md)).
 4. **Projections.** Deduplicated agent events, then sessions, turns, tool calls and cost, derived from raw events. The UI gains session and cost views; the read-only MCP server ([ADR 0008](adr/0008-read-only-mcp-server.md)) exposes them to AI.
 5. **Delivery.** Mostly done early: CI on every push, the container image and GitHub Releases (ADR 0014). Remaining: architecture tests, and CLI binaries attached to releases.
 6. **More agents.** Capture real payloads, then an adapter per agent: Codex, Copilot CLI, VS Code Copilot, Cortex Code.
@@ -75,7 +75,19 @@ Each step is designed with the user first (one topic at a time), then built test
    - an **allowlist** of GitHub users or an organization, since GitHub login alone admits any GitHub account;
    - each installation registers its own GitHub OAuth app. Password login remains the default.
 
-## Next task: transcripts (Phase 3)
+## Next task: git context (before projections)
+
+**Goal:** capture which commit each event was based on, and the repository's commits and tags as they appear, so Phase 4 can group work by commits and releases. Capture can't be backfilled, so it comes first. Decisions: [ADR 0021](adr/0021-git-context.md).
+
+**Steps (test-first):**
+1. ✅ `HEAD` on every event: `gitCommit` read from `.git` in the CLI (loose or packed ref, detached `HEAD`, worktrees; none on a branch with no commits), envelope field (ADR 0011), `CaptureContext.GitCommit` (full lowercase hash, else 400) and `context_git_commit`, shown on the event page.
+2. Commit records: per-worktree state and lock; `git log` when `HEAD` moved (baseline on first sight, 200 commits per run, 1,000 files per commit); `git_commits` table and `POST /git/observations`.
+3. Tag observations: tag-file fingerprint; `git for-each-ref` when it changed (existing tags in the baseline); `git_tag_observations` table.
+4. Rollout and a check against `git log` and `git tag` in this repository.
+
+Then Phase 4, projections: the design started 2026-10-26 with a two-layer model (an activity hierarchy of project, session, turn, responses, tool calls and subagents; units of work as a chosen lens: tag, branch, session, commit or day, with an Auto default), to be written up as an ADR.
+
+## Last task: transcripts (Phase 3, done)
 
 **Goal:** the transcript's content (responses, models, token usage) in the ledger, raw and byte-for-byte, seconds after it's written. Decisions: [ADR 0020](adr/0020-transcripts.md). Claude Code only.
 
@@ -85,7 +97,9 @@ Each step is designed with the user first (one topic at a time), then built test
 3. ✅ Use cases: `IngestTranscriptBatch` (envelope validation, 1–1,000 lines with distinct offsets, meta only for subagents; stored and already-stored counts), `ListTranscriptFiles` (main first, line counts) and `ListTranscriptLines` (keyset on byte offset and line ID) over `ITranscriptQueryService`.
 4. ✅ Web: `POST /transcripts/lines` (ingest key, gzip request decompression, 8 MB limit after decompression answered with 413). Reading back, revised to work like raw events: `GET /api/raw/transcripts` (filters, keyset paging newest first) and `GET /api/raw/transcripts/{lineId}`; a "Raw transcripts" section with list and line pages; `line_type` column (backfilled by migration); session links between events and transcript lines; the v0.4.0 per-session page redirects.
 5. ✅ CLI: `ITranscriptSource` (Claude Code: `transcript_path` and every subagent file in the session's folder, revised after the rollout check found a subagent's last line written after its final hook); `TranscriptStateStore` (offset, fingerprint, lock file); `TranscriptReader` (complete lines, byte offsets, 1 MB per run, lines over 4 MB skipped and logged, restart on shrink or replacement); batches of 1,000 lines or 4 MB in a separate spool folder, sent gzipped, up to 3 per hook; `flush` and `status` cover them. Also fixed: the CLI wrote its spool into the current directory when `~/.local/share` didn't exist yet (`SpecialFolderOption.DoNotVerify`).
-6. Rollout: ✅ v0.4.0 deployed 2026-10-25; this session's main transcript (6,793 lines) verified byte-for-byte against the file. Next: release the revised read side (v0.5.0), and check the migration's `line_type` backfill against the stored text.
+6. ✅ Rollout (2026-10-25): v0.4.0, then v0.4.1 with the revised read side, the subagent fix and the setup page fix. Verified against the files: this session's main transcript byte-for-byte (6,793 lines at the first check) and its three subagents' (21, 23 and 25 lines); the backfilled `line_type` of all 7,177 main-file lines matches the file.
+
+**Next:** to be decided with the user. Phase 4 (projections) is next on the roadmap; Phase 2's remaining steps (user management, HTTPS, GitHub login) when needed.
 
 ## Done before: API keys (Phase 2, step 3)
 

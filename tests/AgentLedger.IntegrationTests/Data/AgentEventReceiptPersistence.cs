@@ -135,7 +135,8 @@ public sealed class AgentEventReceiptPersistence(PostgresFixture db)
       nativeSessionId,
       new DateTimeOffset(2026, 9, 23, 1, 0, 0, TimeSpan.Zero),
       new DateTimeOffset(2026, 9, 23, 1, 0, 0, 40, TimeSpan.Zero),
-      context ?? new CaptureContext("devbox", "eric", "/workspace", "github.com/EricMaibach/AgentLedger", "main", "/workspace"),
+      context ?? new CaptureContext("devbox", "eric", "/workspace", "github.com/EricMaibach/AgentLedger", "main", "/workspace",
+        "2376609a3f019662cf2f5324c09cdb4b61e3be1e"),
       new Dictionary<string, string> { ["story"] = "123", ["phase"] = "build" },
       payload,
       apiKeyId);

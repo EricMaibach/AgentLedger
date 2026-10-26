@@ -85,6 +85,10 @@ namespace AgentLedger.Infrastructure.Data.Migrations
                                 .HasColumnType("text")
                                 .HasColumnName("context_git_branch");
 
+                            b1.Property<string>("GitCommit")
+                                .HasColumnType("text")
+                                .HasColumnName("context_git_commit");
+
                             b1.Property<string>("GitRepo")
                                 .HasColumnType("text")
                                 .HasColumnName("context_git_repo");

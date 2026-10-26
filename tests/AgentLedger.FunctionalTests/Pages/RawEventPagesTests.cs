@@ -131,6 +131,19 @@ public sealed class RawEventPagesTests(CustomWebApplicationFactory<Program> fact
   }
 
   [Fact]
+  public async Task ShowsTheCommitTheEventWasBasedOn()
+  {
+    var eventId = Guid.CreateVersion7();
+    var envelope = TestEnvelope.Json(eventId: eventId, nativeSessionId: _session, gitCommit: "2376609a3f019662cf2f5324c09cdb4b61e3be1e");
+    (await _ingest.PostAsync("/events", new StringContent(envelope, Encoding.UTF8, "application/json"))).StatusCode.ShouldBe(HttpStatusCode.Created);
+
+    var html = await GetPageAsync($"/raw/events/{eventId}");
+
+    html.ShouldContain("Git commit");
+    html.ShouldContain("2376609a3f019662cf2f5324c09cdb4b61e3be1e");
+  }
+
+  [Fact]
   public async Task ShowsAnEventsDetailWithItsPayloadFormatted()
   {
     var eventId = await SendAsync("Stop", payload: OddlyFormattedPayload);

@@ -70,6 +70,12 @@ public sealed class IngestEventTests(CustomWebApplicationFactory<Program> factor
   }
 
   [Fact]
+  public async Task RejectsSomethingThatIsNotACommitHash()
+  {
+    await ShouldBeRejectedAsync(TestEnvelope.Json(gitCommit: "main"), "gitCommit");
+  }
+
+  [Fact]
   public async Task RejectsAMissingHost()
   {
     await ShouldBeRejectedAsync(TestEnvelope.Json(host: null), "host");

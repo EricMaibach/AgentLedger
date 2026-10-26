@@ -28,6 +28,7 @@ internal sealed class EnvelopeBuilder(IHostEnvironment environment, TimeProvider
       GitRepo: git.Repo,
       GitBranch: git.Branch,
       GitWorktree: git.Worktree,
+      GitCommit: git.Commit,
       Tags: ReadTags(),
       Payload: payload);
   }
