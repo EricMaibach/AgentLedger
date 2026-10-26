@@ -7,7 +7,7 @@ using NpgsqlTypes;
 
 namespace AgentLedger.Infrastructure.Data.Stores;
 
-// Observed commits in one statement (ADR 0021), skipping those already stored, and tag observations appended. Commits have lists of varying
+// Observed commits and tag observations (ADR 0021), each in one statement that skips what is already stored. Commits have lists of varying
 // length (parents, files), so the batch goes to Postgres as JSON and jsonb_to_recordset unpacks it. Raw SQL
 // bypasses the audit interceptor, so it sets the audit timestamps itself.
 public sealed class GitObservationStore(AppDbContext db, TimeProvider clock) : IGitObservationStore
@@ -23,19 +23,51 @@ public sealed class GitObservationStore(AppDbContext db, TimeProvider clock) : I
     ON CONFLICT (id) DO NOTHING
     """;
 
-  // One transaction: a batch's commits and tag observations are stored together or not at all.
-  public async Task<int> AddAsync(IReadOnlyList<GitCommit> commits, IReadOnlyList<GitTagObservation> tags, CancellationToken cancellationToken)
+  private const string InsertTags = """
+    INSERT INTO git_tag_observations (id, repository, tag_name, change, commit, previous_commit, observed_at, api_key_id, received_at,
+                                      created_at, updated_at)
+    SELECT t.id, t.repository, t.tag_name, t.change, t.commit, t.previous_commit, t.observed_at, t.api_key_id, t.received_at, @now, @now
+    FROM jsonb_to_recordset(@tags) AS t(id uuid, repository text, tag_name text, change text, commit text, previous_commit text,
+                                        observed_at timestamptz, api_key_id uuid, received_at timestamptz)
+    ON CONFLICT (id) DO NOTHING
+    """;
+
+  // One transaction: a batch's commits and tag observations are stored together or not at all. Both skip what is
+  // already stored: commits by repository and hash, tag observations by the ID the CLI gave them (a batch sent twice).
+  public async Task<GitStoreCounts> AddAsync(IReadOnlyList<GitCommit> commits, IReadOnlyList<GitTagObservation> tags, CancellationToken cancellationToken)
   {
     await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
-    var stored = await AddCommitsAsync(commits, cancellationToken);
-
-    // Observations are new rows by definition (appended, never conflicting), so EF inserts them; its interceptor
-    // sets the audit timestamps.
-    db.GitTagObservations.AddRange(tags);
-    await db.SaveChangesAsync(cancellationToken);
-
+    var commitsStored = await AddCommitsAsync(commits, cancellationToken);
+    var tagsStored = await AddTagsAsync(tags, cancellationToken);
     await transaction.CommitAsync(cancellationToken);
-    return stored;
+    return new GitStoreCounts(commitsStored, tagsStored);
+  }
+
+  private async Task<int> AddTagsAsync(IReadOnlyList<GitTagObservation> tags, CancellationToken cancellationToken)
+  {
+    if (tags.Count == 0)
+    {
+      return 0;
+    }
+
+    var rows = tags.Select(t => new Dictionary<string, object?>
+    {
+      ["id"] = t.Id.Value,
+      ["repository"] = t.Repository,
+      ["tag_name"] = t.TagName,
+      ["change"] = t.Change.Name,
+      ["commit"] = t.Commit?.Value,
+      ["previous_commit"] = t.PreviousCommit?.Value,
+      ["observed_at"] = t.ObservedAt,
+      ["api_key_id"] = t.ApiKeyId.Value,
+      ["received_at"] = t.ReceivedAt,
+    });
+
+    return await db.Database.ExecuteSqlRawAsync(InsertTags,
+    [
+      new NpgsqlParameter("tags", NpgsqlDbType.Jsonb) { Value = JsonSerializer.Serialize(rows) },
+      new NpgsqlParameter("now", clock.GetUtcNow()),
+    ], cancellationToken);
   }
 
   private async Task<int> AddCommitsAsync(IReadOnlyList<GitCommit> commits, CancellationToken cancellationToken)

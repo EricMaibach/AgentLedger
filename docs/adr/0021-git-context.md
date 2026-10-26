@@ -27,7 +27,7 @@ Capture can't be backfilled, so this is captured before projections are designed
 - `POST /git/observations` with an ingest key ([ADR 0019](0019-api-keys.md)), through its own spool folder: one repository's commits and tag changes as one batch, stored in one transaction. The answer counts new and already stored commits and recorded tag observations.
 - The repository is identified by its normalized remote URL, as events record it; without a remote, by host and project folder.
 - **`git_commits`:** one row per commit, keyed by repository and hash (a hash is the commit's content, so a repeat is the same commit and is skipped). Merges have two parents and, as git lists them by default, no files.
-- **`git_tag_observations`:** appended, never updated: tags can be moved or deleted, so the table keeps what was seen when; the current state is derived.
+- **`git_tag_observations`:** appended, never updated: tags can be moved or deleted, so the table keeps what was seen when; the current state is derived. Each observation has an ID the CLI assigns when it sees the change (a UUIDv7, like an event's `eventId`); the server skips an ID it already has. (Revised 2026-10-26: the first version let the server assign IDs, so the same batch sent twice by two parallel hooks was stored twice, which the rollout check found for every baseline tag. Batches without IDs, from older CLIs, still get server-assigned ones.)
 - Both record the key that sent them and when they arrived.
 
 **Not doing**

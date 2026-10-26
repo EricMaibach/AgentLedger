@@ -62,7 +62,7 @@ public sealed class IngestGitObservationsHandler(IGitObservationStore store, Tim
     }
 
     var stored = await store.AddAsync(commits, tags, cancellationToken);
-    return new GitObservationsStored(stored, commits.Count - stored, tags.Count);
+    return new GitObservationsStored(stored.CommitsStored, commits.Count - stored.CommitsStored, stored.TagsStored, tags.Count - stored.TagsStored);
   }
 
   private static GitCommit? ToCommit(string repository, GitCommitInput input, ApiKeyId keyId, DateTimeOffset now)
@@ -106,7 +106,9 @@ public sealed class IngestGitObservationsHandler(IGitObservationStore store, Tim
 
   private static GitTagObservation? ToTag(string repository, GitTagInput input, ApiKeyId keyId, DateTimeOffset now)
   {
-    if (!GitTagChange.TryFromName(input.Change, ignoreCase: true, out var change)
+    // The CLI's ID lets a batch sent twice be recognized; older CLIs send none, and get one assigned here.
+    if (!GitTagObservationId.TryFrom(input.Id ?? Guid.CreateVersion7(), out var id)
+        || !GitTagChange.TryFromName(input.Change, ignoreCase: true, out var change)
         || !TryHash(input.Commit, out var commit)
         || !TryHash(input.PreviousCommit, out var previous))
     {
@@ -115,8 +117,7 @@ public sealed class IngestGitObservationsHandler(IGitObservationStore store, Tim
 
     try
     {
-      return new GitTagObservation(GitTagObservationId.From(Guid.CreateVersion7()), repository, input.Name, change, commit, previous,
-        input.ObservedAt, keyId, now);
+      return new GitTagObservation(id, repository, input.Name, change, commit, previous, input.ObservedAt, keyId, now);
     }
     catch (ArgumentException)
     {

@@ -6,6 +6,8 @@ namespace AgentLedger.UseCases.Git;
 // skipping commits already stored and appending every tag observation.
 public interface IGitObservationStore
 {
-  // Returns how many of the commits were new.
-  Task<int> AddAsync(IReadOnlyList<GitCommit> commits, IReadOnlyList<GitTagObservation> tags, CancellationToken cancellationToken);
+  Task<GitStoreCounts> AddAsync(IReadOnlyList<GitCommit> commits, IReadOnlyList<GitTagObservation> tags, CancellationToken cancellationToken);
 }
+
+// How many of the batch's commits and tag observations were new.
+public sealed record GitStoreCounts(int CommitsStored, int TagsStored);

@@ -5,8 +5,11 @@ using AgentLedger.Cli.Spooling;
 
 namespace AgentLedger.Cli.Git;
 
-/// <summary>A tag change as observed: existing (at the baseline), created, moved or deleted.</summary>
-internal sealed record ObservedTag(string Name, string Change, string? Commit, string? PreviousCommit, DateTimeOffset ObservedAt);
+/// <summary>
+/// A tag change as observed: existing (at the baseline), created, moved or deleted. The ID is assigned here, when the
+/// change is seen, so the ledger recognizes the same batch sent twice (ADR 0021, revised).
+/// </summary>
+internal sealed record ObservedTag(Guid Id, string Name, string Change, string? Commit, string? PreviousCommit, DateTimeOffset ObservedAt);
 
 /// <summary>
 /// What each hook does for git (ADR 0021): new commits, then tag changes. Both are checked from the .git files
@@ -145,7 +148,7 @@ internal sealed class GitCatchUp(IGitRunner git, GitRepositoryStateStore states,
   {
     if (before is null)
     {
-      return [.. now.Select(t => new ObservedTag(t.Key, "existing", t.Value, null, at))];
+      return [.. now.Select(t => new ObservedTag(Guid.CreateVersion7(), t.Key, "existing", t.Value, null, at))];
     }
 
     var observed = new List<ObservedTag>();
@@ -153,15 +156,15 @@ internal sealed class GitCatchUp(IGitRunner git, GitRepositoryStateStore states,
     {
       if (!before.TryGetValue(name, out var previous))
       {
-        observed.Add(new ObservedTag(name, "created", commit, null, at));
+        observed.Add(new ObservedTag(Guid.CreateVersion7(), name, "created", commit, null, at));
       }
       else if (previous != commit)
       {
-        observed.Add(new ObservedTag(name, "moved", commit, previous, at));
+        observed.Add(new ObservedTag(Guid.CreateVersion7(), name, "moved", commit, previous, at));
       }
     }
 
-    observed.AddRange(before.Where(t => !now.ContainsKey(t.Key)).Select(t => new ObservedTag(t.Key, "deleted", null, t.Value, at)));
+    observed.AddRange(before.Where(t => !now.ContainsKey(t.Key)).Select(t => new ObservedTag(Guid.CreateVersion7(), t.Key, "deleted", null, t.Value, at)));
     return observed;
   }
 

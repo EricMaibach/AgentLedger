@@ -24,7 +24,8 @@ public sealed class IngestGitObservationsRequest
 /// A tag change: <c>existing</c> (there when the CLI first saw the repository) or <c>created</c> with its commit;
 /// <c>moved</c> with its commit and previous commit; <c>deleted</c> with its previous commit.
 /// </summary>
-public sealed record IngestGitTag(string Name, string Change, string? Commit, string? PreviousCommit, DateTimeOffset ObservedAt);
+/// <remarks><c>id</c>: the CLI's ID for the observation (a UUIDv7), so a batch sent twice is recognized. Optional for older CLIs.</remarks>
+public sealed record IngestGitTag(string Name, string Change, string? Commit, string? PreviousCommit, DateTimeOffset ObservedAt, Guid? Id);
 
 /// <summary>One commit: full hashes in lowercase hex, the message exactly as git reports it, up to 1,000 changed files.</summary>
 public sealed record IngestGitCommit(string Hash, List<string>? Parents, DateTimeOffset AuthoredAt, DateTimeOffset CommittedAt,
@@ -34,7 +35,8 @@ public sealed record IngestGitCommit(string Hash, List<string>? Parents, DateTim
 public sealed record IngestGitFile(string Path, string Change, string? PreviousPath);
 
 /// <summary>How many commits were new, how many the ledger already had, and how many tag observations were recorded.</summary>
-public sealed record IngestGitObservationsResponse(int CommitsStored, int CommitsAlreadyStored, int TagObservationsRecorded);
+public sealed record IngestGitObservationsResponse(int CommitsStored, int CommitsAlreadyStored, int TagObservationsRecorded,
+  int TagObservationsAlreadyRecorded);
 
 /// <summary>POST /git/observations: an ingest key (ADR 0019); gzip allowed.</summary>
 public sealed class IngestGitObservations(IMediator mediator)
@@ -66,10 +68,10 @@ public sealed class IngestGitObservations(IMediator mediator)
       request.Repository,
       [.. request.Commits.Select(c => new GitCommitInput(c.Hash, c.Parents ?? [], c.AuthoredAt, c.CommittedAt, c.Message,
         [.. (c.Files ?? []).Select(f => new GitFileInput(f.Path, f.Change, f.PreviousPath))], c.FilesTruncated))],
-      [.. request.Tags.Select(t => new GitTagInput(t.Name, t.Change, t.Commit, t.PreviousCommit, t.ObservedAt))],
+      [.. request.Tags.Select(t => new GitTagInput(t.Name, t.Change, t.Commit, t.PreviousCommit, t.ObservedAt, t.Id))],
       Guid.Parse(User.FindFirstValue(ApiKeyAuthenticationHandler.KeyIdClaim)!)), cancellationToken); // the policy guarantees a key
 
     return result.ToOkResult(stored =>
-      new IngestGitObservationsResponse(stored.CommitsStored, stored.CommitsAlreadyStored, stored.TagObservationsRecorded));
+      new IngestGitObservationsResponse(stored.CommitsStored, stored.CommitsAlreadyStored, stored.TagObservationsRecorded, stored.TagObservationsAlreadyRecorded));
   }
 }

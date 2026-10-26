@@ -115,4 +115,30 @@ public sealed class GitObservationsTests(CustomWebApplicationFactory<Program> fa
     response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     (await response.Content.ReadAsStringAsync()).ShouldContain("\"tags\"");
   }
+
+  [Fact]
+  public async Task RecordsATagObservationOnceWhenTheSameBatchArrivesTwice()
+  {
+    var ingest = await factory.CreateIngestClientAsync();
+    var body = new JsonObject
+    {
+      ["repository"] = _repository,
+      ["tags"] = new JsonArray(new JsonObject
+      {
+        ["id"] = Guid.CreateVersion7(),
+        ["name"] = "v0.5.0",
+        ["change"] = "created",
+        ["commit"] = "eb91b9901b8f78138273bb00d40f097b953534eb",
+        ["observedAt"] = "2026-10-26T03:00:00Z",
+      }),
+    }.ToJsonString();
+
+    var first = await ingest.PostAsync("/git/observations", Json(body));
+    var second = await ingest.PostAsync("/git/observations", Json(body));
+
+    (await TagsRecordedAsync(first)).ShouldBe(1);
+    var json = JsonDocument.Parse(await second.Content.ReadAsStringAsync()).RootElement;
+    json.GetProperty("tagObservationsRecorded").GetInt32().ShouldBe(0);
+    json.GetProperty("tagObservationsAlreadyRecorded").GetInt32().ShouldBe(1);
+  }
 }

@@ -12,6 +12,7 @@ public sealed record GitCommitInput(string Hash, IReadOnlyList<string> Parents, 
 public sealed record GitFileInput(string Path, string Change, string? PreviousPath);
 
 // Change: existing, created, moved or deleted (any case). Commit and PreviousCommit as the change needs them.
-public sealed record GitTagInput(string Name, string Change, string? Commit, string? PreviousCommit, DateTimeOffset ObservedAt);
+// Id: assigned by the CLI when it saw the change, so a batch sent twice is recognized; older CLIs send none.
+public sealed record GitTagInput(string Name, string Change, string? Commit, string? PreviousCommit, DateTimeOffset ObservedAt, Guid? Id = null);
 
-public sealed record GitObservationsStored(int CommitsStored, int CommitsAlreadyStored, int TagObservationsRecorded);
+public sealed record GitObservationsStored(int CommitsStored, int CommitsAlreadyStored, int TagObservationsRecorded, int TagObservationsAlreadyRecorded);

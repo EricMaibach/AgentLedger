@@ -30,7 +30,9 @@ public sealed class IngestGitObservationsHandlerHandle
   private void StoreReportsNew(int count) =>
     _store.AddAsync(Arg.Do<IReadOnlyList<GitCommit>>(c => _stored = c), Arg.Do<IReadOnlyList<GitTagObservation>>(t => _storedTags = t),
         Arg.Any<CancellationToken>())
-      .Returns(call => Math.Min(count, call.Arg<IReadOnlyList<GitCommit>>().Count));
+      .Returns(call => new GitStoreCounts(
+        Math.Min(count, call.Arg<IReadOnlyList<GitCommit>>().Count),
+        Math.Min(count, call.Arg<IReadOnlyList<GitTagObservation>>().Count)));
 
   private static GitCommitInput Commit(string hash = HashA, string[]? parents = null, IReadOnlyList<GitFileInput>? files = null) =>
     new(hash, parents ?? [HashB], Now.AddHours(-1), Now.AddMinutes(-59), "Add login\n",
@@ -42,8 +44,9 @@ public sealed class IngestGitObservationsHandlerHandle
   private ValueTask<Result<GitObservationsStored>> HandleTags(params GitTagInput[] tags) =>
     _handler.Handle(new IngestGitObservationsCommand("github.com/owner/repo", [], tags, KeyId), CancellationToken.None);
 
-  private static GitTagInput Tag(string change = "created", string? commit = HashA, string? previous = null, string name = "v1.0.0") =>
-    new(name, change, commit, previous, Now.AddMinutes(-1));
+  private static GitTagInput Tag(string change = "created", string? commit = HashA, string? previous = null, string name = "v1.0.0",
+    Guid? id = null) =>
+    new(name, change, commit, previous, Now.AddMinutes(-1), id);
 
   [Fact]
   public void HasTheAgreedBatchLimit()
@@ -72,7 +75,7 @@ public sealed class IngestGitObservationsHandlerHandle
   {
     StoreReportsNew(1);
 
-    (await Handle(commits: [Commit(HashA), Commit(HashB, parents: [])])).Value.ShouldBe(new GitObservationsStored(1, 1, 0));
+    (await Handle(commits: [Commit(HashA), Commit(HashB, parents: [])])).Value.ShouldBe(new GitObservationsStored(1, 1, 0, 0));
   }
 
   [Theory]
@@ -125,7 +128,7 @@ public sealed class IngestGitObservationsHandlerHandle
   {
     var result = await HandleTags(Tag("moved", HashA, HashB, "v0.4.3"), Tag("existing", HashB, null, "v0.4.2"));
 
-    result.Value.ShouldBe(new GitObservationsStored(0, 0, 2));
+    result.Value.ShouldBe(new GitObservationsStored(0, 0, 2, 0));
     var moved = _storedTags.ShouldNotBeNull().First();
     moved.Repository.ShouldBe("github.com/owner/repo");
     moved.TagName.ShouldBe("v0.4.3");
@@ -155,5 +158,38 @@ public sealed class IngestGitObservationsHandlerHandle
     var tags = Enumerable.Range(0, Constants.MAX_GIT_TAGS_PER_BATCH + 1).Select(i => Tag(name: $"t{i}")).ToArray();
 
     (await HandleTags(tags)).ValidationErrors.ShouldHaveSingleItem().Identifier.ShouldBe("tags");
+  }
+
+  [Fact]
+  public async Task KeepsTheIdTheCliAssigned()
+  {
+    // So a batch sent twice (parallel hooks) is recognized (ADR 0021, revised).
+    var id = Guid.CreateVersion7();
+
+    await HandleTags(Tag(id: id));
+
+    _storedTags.ShouldNotBeNull().Single().Id.ShouldBe(GitTagObservationId.From(id));
+  }
+
+  [Fact]
+  public async Task AssignsAnIdForOlderClisThatSendNone()
+  {
+    await HandleTags(Tag(id: null));
+
+    _storedTags.ShouldNotBeNull().Single().Id.Value.ShouldNotBe(Guid.Empty);
+  }
+
+  [Fact]
+  public async Task RejectsAnEmptyId()
+  {
+    (await HandleTags(Tag(id: Guid.Empty))).ValidationErrors.ShouldHaveSingleItem().Identifier.ShouldBe("tags");
+  }
+
+  [Fact]
+  public async Task SaysHowManyTagObservationsTheLedgerAlreadyHad()
+  {
+    StoreReportsNew(1);
+
+    (await HandleTags(Tag(name: "a"), Tag(name: "b"))).Value.ShouldBe(new GitObservationsStored(0, 0, 1, 1));
   }
 }

@@ -95,6 +95,19 @@ public sealed class GitObservationStoreTests(PostgresFixture db)
   }
 
   [Fact]
+  public async Task RecordsEachObservationOnceEvenWhenSentTwice()
+  {
+    // Two parallel hooks can send the same batch at once; the CLI's ID makes the second copy recognizable.
+    var key = await ApiKeyPersistence.SaveNewKeyAsync(db);
+    var observation = Tag(key, "v1.0.0", GitTagChange.Created, "8888888888888888888888888888888888888888");
+
+    (await AddAsync([], [observation])).TagsStored.ShouldBe(1);
+    (await AddAsync([], [observation])).TagsStored.ShouldBe(0);
+
+    (await LoadTagsAsync()).Count.ShouldBe(1);
+  }
+
+  [Fact]
   public async Task StoresCommitsAndTagsTogetherOrNotAtAll()
   {
     // One batch, one transaction: a tag that can't be stored takes its batch's commits with it.
@@ -123,9 +136,9 @@ public sealed class GitObservationStoreTests(PostgresFixture db)
     new(_repository, CommitHash.From(hash), [.. parents.Select(CommitHash.From)], T0, T0.AddMinutes(1), message,
       files ?? [], filesTruncated, key.Id, T0.AddMinutes(2));
 
-  private Task<int> AddAsync(params GitCommit[] commits) => AddAsync(commits, []);
+  private async Task<int> AddAsync(params GitCommit[] commits) => (await AddAsync(commits, [])).CommitsStored;
 
-  private async Task<int> AddAsync(IReadOnlyList<GitCommit> commits, IReadOnlyList<GitTagObservation> tags)
+  private async Task<GitStoreCounts> AddAsync(IReadOnlyList<GitCommit> commits, IReadOnlyList<GitTagObservation> tags)
   {
     using var scope = db.Services.CreateScope();
     return await scope.ServiceProvider.GetRequiredService<IGitObservationStore>().AddAsync(commits, tags, CancellationToken.None);

@@ -53,6 +53,7 @@ internal static class GitBatches
       foreach (var tag in tags)
       {
         writer.WriteStartObject();
+        writer.WriteString("id", tag.Id);
         writer.WriteString("name", tag.Name);
         writer.WriteString("change", tag.Change);
         writer.WriteString("commit", tag.Commit);

@@ -49,6 +49,23 @@ public sealed class GitCatchUpTags : IDisposable
   }
 
   [Fact]
+  public async Task GivesEachObservationItsOwnId()
+  {
+    // The server recognizes a batch sent twice by these IDs (ADR 0021, revised).
+    _repo.Commit("first");
+    _repo.Git("tag", "a");
+    _repo.Git("tag", "b");
+
+    await RunAsync();
+
+    var ids = _spool.List().SelectMany(s => JsonDocument.Parse(_spool.Read(s)!).RootElement.GetProperty("tags").EnumerateArray())
+      .Select(t => t.GetProperty("id").GetGuid()).ToList();
+    ids.Count.ShouldBe(2);
+    ids.ShouldAllBe(id => id != Guid.Empty);
+    ids.Distinct().Count().ShouldBe(2);
+  }
+
+  [Fact]
   public async Task RecordsTagsCreatedMovedAndDeleted()
   {
     var first = _repo.Commit("first");
