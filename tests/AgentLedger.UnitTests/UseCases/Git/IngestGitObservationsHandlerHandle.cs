@@ -19,6 +19,7 @@ public sealed class IngestGitObservationsHandlerHandle
   private readonly IGitObservationStore _store = Substitute.For<IGitObservationStore>();
   private readonly IngestGitObservationsHandler _handler;
   private IReadOnlyList<GitCommit>? _stored;
+  private IReadOnlyList<GitTagObservation>? _storedTags;
 
   public IngestGitObservationsHandlerHandle()
   {
@@ -27,7 +28,8 @@ public sealed class IngestGitObservationsHandlerHandle
   }
 
   private void StoreReportsNew(int count) =>
-    _store.AddCommitsAsync(Arg.Do<IReadOnlyList<GitCommit>>(c => _stored = c), Arg.Any<CancellationToken>())
+    _store.AddAsync(Arg.Do<IReadOnlyList<GitCommit>>(c => _stored = c), Arg.Do<IReadOnlyList<GitTagObservation>>(t => _storedTags = t),
+        Arg.Any<CancellationToken>())
       .Returns(call => Math.Min(count, call.Arg<IReadOnlyList<GitCommit>>().Count));
 
   private static GitCommitInput Commit(string hash = HashA, string[]? parents = null, IReadOnlyList<GitFileInput>? files = null) =>
@@ -35,7 +37,13 @@ public sealed class IngestGitObservationsHandlerHandle
       files ?? [new GitFileInput("src/Login.cs", "added", null)], FilesTruncated: false);
 
   private ValueTask<Result<GitObservationsStored>> Handle(string repository = "github.com/owner/repo", params GitCommitInput[] commits) =>
-    _handler.Handle(new IngestGitObservationsCommand(repository, commits.Length == 0 ? [Commit()] : commits, KeyId), CancellationToken.None);
+    _handler.Handle(new IngestGitObservationsCommand(repository, commits.Length == 0 ? [Commit()] : commits, [], KeyId), CancellationToken.None);
+
+  private ValueTask<Result<GitObservationsStored>> HandleTags(params GitTagInput[] tags) =>
+    _handler.Handle(new IngestGitObservationsCommand("github.com/owner/repo", [], tags, KeyId), CancellationToken.None);
+
+  private static GitTagInput Tag(string change = "created", string? commit = HashA, string? previous = null, string name = "v1.0.0") =>
+    new(name, change, commit, previous, Now.AddMinutes(-1));
 
   [Fact]
   public void HasTheAgreedBatchLimit()
@@ -64,7 +72,7 @@ public sealed class IngestGitObservationsHandlerHandle
   {
     StoreReportsNew(1);
 
-    (await Handle(commits: [Commit(HashA), Commit(HashB, parents: [])])).Value.ShouldBe(new GitObservationsStored(1, 1));
+    (await Handle(commits: [Commit(HashA), Commit(HashB, parents: [])])).Value.ShouldBe(new GitObservationsStored(1, 1, 0));
   }
 
   [Theory]
@@ -78,7 +86,7 @@ public sealed class IngestGitObservationsHandlerHandle
   [Fact]
   public async Task RejectsAnEmptyBatchOrTooManyCommits()
   {
-    var empty = await _handler.Handle(new IngestGitObservationsCommand("github.com/owner/repo", [], KeyId), CancellationToken.None);
+    var empty = await _handler.Handle(new IngestGitObservationsCommand("github.com/owner/repo", [], [], KeyId), CancellationToken.None);
     var tooMany = Enumerable.Range(0, Constants.MAX_GIT_COMMITS_PER_BATCH + 1)
       .Select(i => Commit(i.ToString("x40", System.Globalization.CultureInfo.InvariantCulture), parents: [])).ToArray();
 
@@ -110,5 +118,42 @@ public sealed class IngestGitObservationsHandlerHandle
     var files = Enumerable.Range(0, GitCommit.MaxFiles + 1).Select(i => new GitFileInput($"f{i}", "modified", null)).ToList();
 
     (await Handle(commits: Commit(files: files))).ValidationErrors.ShouldHaveSingleItem().Identifier.ShouldBe("commits");
+  }
+
+  [Fact]
+  public async Task RecordsTagObservations()
+  {
+    var result = await HandleTags(Tag("moved", HashA, HashB, "v0.4.3"), Tag("existing", HashB, null, "v0.4.2"));
+
+    result.Value.ShouldBe(new GitObservationsStored(0, 0, 2));
+    var moved = _storedTags.ShouldNotBeNull().First();
+    moved.Repository.ShouldBe("github.com/owner/repo");
+    moved.TagName.ShouldBe("v0.4.3");
+    moved.Change.ShouldBe(GitTagChange.Moved);
+    moved.Commit.ShouldBe(CommitHash.From(HashA));
+    moved.PreviousCommit.ShouldBe(CommitHash.From(HashB));
+    moved.ObservedAt.ShouldBe(Now.AddMinutes(-1));
+    moved.ApiKeyId.ShouldBe(ApiKeyId.From(KeyId));
+    moved.ReceivedAt.ShouldBe(Now);
+  }
+
+  [Theory]
+  [InlineData("renamed", HashA, null)]   // not a change the CLI reports
+  [InlineData("moved", HashA, null)]     // a move needs the previous commit
+  [InlineData("created", "abc", null)]   // not a commit hash
+  public async Task RejectsAnInvalidTagObservation(string change, string? commit, string? previous)
+  {
+    var result = await HandleTags(Tag(change, commit, previous));
+
+    result.ValidationErrors.ShouldHaveSingleItem().Identifier.ShouldBe("tags");
+    _storedTags.ShouldBeNull();
+  }
+
+  [Fact]
+  public async Task RejectsTooManyTags()
+  {
+    var tags = Enumerable.Range(0, Constants.MAX_GIT_TAGS_PER_BATCH + 1).Select(i => Tag(name: $"t{i}")).ToArray();
+
+    (await HandleTags(tags)).ValidationErrors.ShouldHaveSingleItem().Identifier.ShouldBe("tags");
   }
 }

@@ -35,6 +35,12 @@ public sealed class GitObservationsTests(CustomWebApplicationFactory<Program> fa
     return (json.GetProperty("commitsStored").GetInt32(), json.GetProperty("commitsAlreadyStored").GetInt32());
   }
 
+  private async Task<int> TagsRecordedAsync(HttpResponseMessage response)
+  {
+    response.StatusCode.ShouldBe(HttpStatusCode.OK, await response.Content.ReadAsStringAsync());
+    return JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement.GetProperty("tagObservationsRecorded").GetInt32();
+  }
+
   [Fact]
   public async Task StoresNewCommitsAndSkipsOnesItHas()
   {
@@ -76,5 +82,37 @@ public sealed class GitObservationsTests(CustomWebApplicationFactory<Program> fa
 
     response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     (await response.Content.ReadAsStringAsync()).ShouldContain("\"commits\"");
+  }
+
+  [Fact]
+  public async Task RecordsTagsWithoutCommits()
+  {
+    var ingest = await factory.CreateIngestClientAsync();
+    var body = new JsonObject
+    {
+      ["repository"] = _repository,
+      ["commits"] = new JsonArray(),
+      ["tags"] = new JsonArray(
+        new JsonObject { ["name"] = "v0.4.3", ["change"] = "existing", ["commit"] = "eb91b9901b8f78138273bb00d40f097b953534eb", ["observedAt"] = "2026-10-26T02:14:19Z" },
+        new JsonObject { ["name"] = "v0.4.2", ["change"] = "deleted", ["previousCommit"] = "3e2d081f2042d75a1ef93e3611cdbb7f2fccdbba", ["observedAt"] = "2026-10-26T02:14:19Z" }),
+    }.ToJsonString();
+
+    (await TagsRecordedAsync(await ingest.PostAsync("/git/observations", Json(body)))).ShouldBe(2);
+  }
+
+  [Fact]
+  public async Task RejectsAnInvalidTagByField()
+  {
+    var ingest = await factory.CreateIngestClientAsync();
+    var body = new JsonObject
+    {
+      ["repository"] = _repository,
+      ["tags"] = new JsonArray(new JsonObject { ["name"] = "v1", ["change"] = "moved", ["commit"] = "eb91b9901b8f78138273bb00d40f097b953534eb", ["observedAt"] = "2026-10-26T02:14:19Z" }),
+    }.ToJsonString();
+
+    var response = await ingest.PostAsync("/git/observations", Json(body));
+
+    response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+    (await response.Content.ReadAsStringAsync()).ShouldContain("\"tags\"");
   }
 }

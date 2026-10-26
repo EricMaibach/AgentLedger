@@ -45,7 +45,7 @@ internal static class HookCommand
   {
     var spool = new EventSpool(CliPaths.GitSpoolDirectory(settings.SpoolDirectory.Value), SpoolLimits.Default);
     return new GitPipeline(
-      new GitCommitCatchUp(new ProcessGitRunner(), new GitRepositoryStateStore(CliPaths.GitStateDirectory(environment)), spool, log,
+      new GitCatchUp(new ProcessGitRunner(), new GitRepositoryStateStore(CliPaths.GitStateDirectory(environment)), spool, log,
         TimeProvider.System, HostName.For(environment)),
       new SpoolDrainer(spool, new HttpGitSender(http, settings.Url.Value, settings.ApiKey.Value), log, itemName: "git batch"));
   }

@@ -21,4 +21,5 @@ namespace AgentLedger.Infrastructure.Data.Config;
 [EfCoreConverter<TranscriptFileName>]
 [EfCoreConverter<GitCommitId>]
 [EfCoreConverter<CommitHash>]
+[EfCoreConverter<GitTagObservationId>]
 internal sealed partial class VogenEfCoreConverters;

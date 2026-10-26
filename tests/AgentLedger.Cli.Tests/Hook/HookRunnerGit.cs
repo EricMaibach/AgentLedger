@@ -31,7 +31,7 @@ public sealed class HookRunnerGit : IDisposable
   {
     var clock = new FakeTimeProvider(DateTimeOffset.UtcNow.AddMinutes(-1));
     var git = new GitPipeline(
-      new GitCommitCatchUp(new ProcessGitRunner(), new GitRepositoryStateStore(Path.Combine(_data.Path, "git")), _gitSpool, _log, clock, "devbox"),
+      new GitCatchUp(new ProcessGitRunner(), new GitRepositoryStateStore(Path.Combine(_data.Path, "git")), _gitSpool, _log, clock, "devbox"),
       new SpoolDrainer(_gitSpool, _gitSender, _log, itemName: "git batch"));
     var runner = new HookRunner(
       new EnvelopeBuilder(new FakeHostEnvironment { CurrentDirectory = _repo.Path }, clock),

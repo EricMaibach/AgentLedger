@@ -19,6 +19,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
   public DbSet<TranscriptLine> TranscriptLines => Set<TranscriptLine>();
   public DbSet<TranscriptFile> TranscriptFiles => Set<TranscriptFile>();
   public DbSet<GitCommit> GitCommits => Set<GitCommit>();
+  public DbSet<GitTagObservation> GitTagObservations => Set<GitTagObservation>();
 
   protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder) =>
     configurationBuilder.Conventions.Add(_ => new AuditTimestampsConvention());

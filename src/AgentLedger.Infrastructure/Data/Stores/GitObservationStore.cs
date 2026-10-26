@@ -7,7 +7,7 @@ using NpgsqlTypes;
 
 namespace AgentLedger.Infrastructure.Data.Stores;
 
-// Observed commits in one statement (ADR 0021), skipping those already stored. Commits have lists of varying
+// Observed commits in one statement (ADR 0021), skipping those already stored, and tag observations appended. Commits have lists of varying
 // length (parents, files), so the batch goes to Postgres as JSON and jsonb_to_recordset unpacks it. Raw SQL
 // bypasses the audit interceptor, so it sets the audit timestamps itself.
 public sealed class GitObservationStore(AppDbContext db, TimeProvider clock) : IGitObservationStore
@@ -23,7 +23,22 @@ public sealed class GitObservationStore(AppDbContext db, TimeProvider clock) : I
     ON CONFLICT (id) DO NOTHING
     """;
 
-  public async Task<int> AddCommitsAsync(IReadOnlyList<GitCommit> commits, CancellationToken cancellationToken)
+  // One transaction: a batch's commits and tag observations are stored together or not at all.
+  public async Task<int> AddAsync(IReadOnlyList<GitCommit> commits, IReadOnlyList<GitTagObservation> tags, CancellationToken cancellationToken)
+  {
+    await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+    var stored = await AddCommitsAsync(commits, cancellationToken);
+
+    // Observations are new rows by definition (appended, never conflicting), so EF inserts them; its interceptor
+    // sets the audit timestamps.
+    db.GitTagObservations.AddRange(tags);
+    await db.SaveChangesAsync(cancellationToken);
+
+    await transaction.CommitAsync(cancellationToken);
+    return stored;
+  }
+
+  private async Task<int> AddCommitsAsync(IReadOnlyList<GitCommit> commits, CancellationToken cancellationToken)
   {
     if (commits.Count == 0)
     {

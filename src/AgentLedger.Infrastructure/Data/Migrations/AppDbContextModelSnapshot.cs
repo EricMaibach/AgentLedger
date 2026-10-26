@@ -282,6 +282,71 @@ namespace AgentLedger.Infrastructure.Data.Migrations
                     b.ToTable("git_commits", (string)null);
                 });
 
+            modelBuilder.Entity("AgentLedger.Core.GitAggregate.GitTagObservation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ApiKeyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("api_key_id");
+
+                    b.Property<string>("Change")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("change");
+
+                    b.Property<string>("Commit")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("commit");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset>("ObservedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("observed_at");
+
+                    b.Property<string>("PreviousCommit")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("previous_commit");
+
+                    b.Property<DateTimeOffset>("ReceivedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("received_at");
+
+                    b.Property<string>("Repository")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("repository");
+
+                    b.Property<string>("TagName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("tag_name");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_git_tag_observations");
+
+                    b.HasIndex("ApiKeyId")
+                        .HasDatabaseName("ix_git_tag_observations_api_key_id");
+
+                    b.HasIndex("Repository", "TagName", "ObservedAt")
+                        .HasDatabaseName("ix_git_tag_observations_repository_tag_name_observed_at");
+
+                    b.ToTable("git_tag_observations", (string)null);
+                });
+
             modelBuilder.Entity("AgentLedger.Core.TranscriptAggregate.TranscriptFile", b =>
                 {
                     b.Property<Guid>("Id")
@@ -494,6 +559,16 @@ namespace AgentLedger.Infrastructure.Data.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_git_commits_api_keys_api_key_id");
+                });
+
+            modelBuilder.Entity("AgentLedger.Core.GitAggregate.GitTagObservation", b =>
+                {
+                    b.HasOne("AgentLedger.Core.ApiKeyAggregate.ApiKey", null)
+                        .WithMany()
+                        .HasForeignKey("ApiKeyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_git_tag_observations_api_keys_api_key_id");
                 });
 
             modelBuilder.Entity("AgentLedger.Core.TranscriptAggregate.TranscriptFile", b =>

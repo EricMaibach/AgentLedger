@@ -95,3 +95,4 @@ public sealed class GitCommit : EntityBase<GitCommit, GitCommitId>, IAggregateRo
   private GitCommit() { }
 #pragma warning restore CS8618
 }
+

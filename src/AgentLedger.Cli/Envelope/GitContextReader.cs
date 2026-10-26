@@ -44,6 +44,20 @@ internal static class GitContextReader
     }
   }
 
+  /// <summary>The git folder a repository's worktrees share (refs, tags, config), or null outside a repository.</summary>
+  public static string? FindCommonDirectory(string startDirectory)
+  {
+    try
+    {
+      var workingTree = FindWorkingTreeRoot(startDirectory);
+      return workingTree is null ? null : FindGitDirectories(workingTree).CommonDir;
+    }
+    catch (Exception ex) when (IsUnreadableRepository(ex))
+    {
+      return null;
+    }
+  }
+
   /// <summary>Walks up from the start directory to the first folder containing .git (a folder or a file).</summary>
   public static string? FindWorkingTreeRoot(string startDirectory)
   {

@@ -7,7 +7,7 @@ namespace AgentLedger.Cli.Tests.Git;
 
 // What a hook does for commits (ADR 0021), against a real repository: a baseline on first sight, then the
 // commits made since, oldest first, into the spool.
-public sealed class GitCommitCatchUpRun : IDisposable
+public sealed class GitCatchUpCommits : IDisposable
 {
   private readonly TempGitRepository _repo = new();
   private readonly TempDirectory _data = new();
@@ -15,7 +15,7 @@ public sealed class GitCommitCatchUpRun : IDisposable
   private readonly FakeLog _log = new();
   private readonly FakeTimeProvider _clock = new(DateTimeOffset.UtcNow.AddMinutes(-1));
 
-  public GitCommitCatchUpRun() => _spool = new EventSpool(Path.Combine(_data.Path, "spool", "git"), SpoolLimits.Default);
+  public GitCatchUpCommits() => _spool = new EventSpool(Path.Combine(_data.Path, "spool", "git"), SpoolLimits.Default);
 
   public void Dispose()
   {
@@ -24,7 +24,7 @@ public sealed class GitCommitCatchUpRun : IDisposable
   }
 
   private Task RunAsync(int maxCommits = 200, IGitRunner? runner = null) =>
-    new GitCommitCatchUp(runner ?? new ProcessGitRunner(), new GitRepositoryStateStore(Path.Combine(_data.Path, "git")), _spool, _log, _clock,
+    new GitCatchUp(runner ?? new ProcessGitRunner(), new GitRepositoryStateStore(Path.Combine(_data.Path, "git")), _spool, _log, _clock,
       machineName: "devbox", maxCommits).RunAsync(_repo.Path);
 
   // The spooled batches' commits, in file order of the batches (spool names are time-ordered to the millisecond).
@@ -125,7 +125,7 @@ public sealed class GitCommitCatchUpRun : IDisposable
   [Fact]
   public async Task DoesNothingOutsideARepository()
   {
-    await new GitCommitCatchUp(new ProcessGitRunner(), new GitRepositoryStateStore(Path.Combine(_data.Path, "git")), _spool, _log, _clock,
+    await new GitCatchUp(new ProcessGitRunner(), new GitRepositoryStateStore(Path.Combine(_data.Path, "git")), _spool, _log, _clock,
       "devbox", 200).RunAsync(_data.Path);
 
     _spool.List().ShouldBeEmpty();
