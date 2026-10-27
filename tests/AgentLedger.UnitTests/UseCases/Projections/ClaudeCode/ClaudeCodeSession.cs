@@ -40,8 +40,8 @@ internal sealed class ClaudeCodeSession
     return Line(line);
   }
 
-  public ClaudeCodeSession Thinking(string messageId, double at, string text = "", Usage? usage = null) =>
-    Assistant(messageId, at, new JsonObject { ["type"] = "thinking", ["thinking"] = text, ["signature"] = "c2ln" }, usage);
+  public ClaudeCodeSession Thinking(string messageId, double at, string text = "", Usage? usage = null, string signature = "c2ln") =>
+    Assistant(messageId, at, new JsonObject { ["type"] = "thinking", ["thinking"] = text, ["signature"] = signature }, usage);
 
   public ClaudeCodeSession Text(string messageId, double at, string text, Usage? usage = null, string stopReason = "end_turn",
     string model = "claude-opus-5-5") =>

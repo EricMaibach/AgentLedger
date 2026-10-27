@@ -4,5 +4,7 @@
 // gets projected: the worker then rebuilds every stored session in the background.
 public static class ProjectionVersion
 {
-  public const int Current = 3; // 2: session titles and step summaries; 3: thinking written twice is one step
+  // 2: session titles and step summaries. 3: a thinking block without text followed by one with text became one step,
+  // wrongly (they are separate blocks). 4: each thinking block is its own step again.
+  public const int Current = 4;
 }

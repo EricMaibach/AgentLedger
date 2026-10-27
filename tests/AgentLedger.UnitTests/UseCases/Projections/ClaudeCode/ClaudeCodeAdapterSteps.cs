@@ -39,25 +39,25 @@ public sealed class ClaudeCodeAdapterSteps
   }
 
   [Fact]
-  public void ThinkingWrittenAgainWithItsSummaryIsOneStep()
+  public void EachThinkingBlockOfAResponseIsItsOwnStep()
   {
-    // With summaries on, Claude Code writes a thinking block twice: first without text, then with its summary
-    // (seen in 195 responses, 2026-10-27). The ID stays the first line's, so it doesn't change when the summary arrives.
+    // A response can think more than once, and Claude Code may record a summary for only some of its blocks. Each
+    // block has its own signature (seen in all 196 responses with two, 2026-10-27), so a block without text followed
+    // by one with text is two blocks, not one written twice: both are shown, each as recorded.
     var s = new ClaudeCodeSession().PromptLine("p-1", "Go", 0)
-      .Thinking("msg_1", 1).Thinking("msg_1", 1.01, "Checking the cart first.").Text("msg_1", 2, "Done.");
+      .Thinking("msg_1", 1, signature: "Zmlyc3Q=").Thinking("msg_1", 1.01, "Checking the cart first.", signature: "c2Vjb25k")
+      .Text("msg_1", 2, "Done.");
     var steps = s.Project().Turns.Single().Steps;
 
-    steps.Select(st => st.Kind).ShouldBe([StepKind.Prompt, StepKind.Thinking, StepKind.Response]);
-    var thinking = steps[1];
-    thinking.Text.ShouldBe("Checking the cart first.");
-    thinking.Id.ShouldBe(StepIdFor(StepKind.Thinking, $"{s.Lines[1].Id.Value}#0"));
-    thinking.Lineage.LineIds.ShouldBe([s.Lines[1].Id, s.Lines[2].Id]);
+    steps.Select(st => (st.Kind, st.Text)).ShouldBe([
+      (StepKind.Prompt, "Go"), (StepKind.Thinking, null), (StepKind.Thinking, "Checking the cart first."), (StepKind.Response, "Done.")]);
+    steps[1].Lineage.LineIds.ShouldBe([s.Lines[1].Id]);
+    steps[2].Lineage.LineIds.ShouldBe([s.Lines[2].Id]);
   }
 
   [Fact]
-  public void SeparateThinkingBlocksStaySeparate()
+  public void SeparateThinkingBlocksWithTextStaySeparate()
   {
-    // Only a block without text followed by its summary is one block; two with text are two.
     var steps = new ClaudeCodeSession().PromptLine("p-1", "Go", 0)
       .Thinking("msg_1", 1, "First idea.").Thinking("msg_1", 2, "Second idea.")
       .Project().Turns.Single().Steps;
