@@ -29,6 +29,20 @@ public sealed class WorkFormatTests
   }
 
   [Fact]
+  public void DaysAreNamedInFull()
+  {
+    // UTC for now, like every time in the UI (docs/ui.md).
+    WorkFormat.Day(new DateTimeOffset(2026, 10, 27, 1, 47, 0, TimeSpan.FromHours(-4))).ShouldBe("Tue 27 Oct 2026");
+    WorkFormat.Day(new DateTimeOffset(2026, 10, 26, 23, 0, 0, TimeSpan.Zero)).ShouldBe("Mon 26 Oct 2026");
+  }
+
+  [Fact]
+  public void TimesOfDayAreHoursAndMinutesInUtc()
+  {
+    WorkFormat.TimeOfDay(new DateTimeOffset(2026, 10, 26, 21, 47, 12, TimeSpan.FromHours(-4))).ShouldBe("01:47");
+  }
+
+  [Fact]
   public void NoEndMeansNoDuration()
   {
     WorkFormat.Duration(T0, null).ShouldBeNull();

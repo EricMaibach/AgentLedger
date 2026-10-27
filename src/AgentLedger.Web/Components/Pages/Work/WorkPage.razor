@@ -39,6 +39,9 @@
     {
       <div class="divider" data-divider="right" role="separator" aria-orientation="vertical" aria-label="Resize details" tabindex="0"></div>
       <section class="pane details" aria-label="Step details">
+        <div class="pane-header">
+          <button type="button" class="collapse" data-collapse="right" aria-label="Collapse details" title="Collapse">›</button>
+        </div>
         <StepDetails Step="step" CloseHref="@WorkLink.To(sessionId, State.ExpandedTurnId)" />
       </section>
     }

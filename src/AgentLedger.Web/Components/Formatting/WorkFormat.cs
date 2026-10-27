@@ -18,6 +18,13 @@ public static partial class WorkFormat
       : string.Create(CultureInfo.InvariantCulture, $"+{elapsed.Minutes}:{elapsed.Seconds:00}");
   }
 
+  /// <summary>A day for date dividers: <c>Tue 27 Oct 2026</c>, in UTC like every time in the UI (docs/ui.md).</summary>
+  public static string Day(DateTimeOffset value) =>
+    value.UtcDateTime.ToString("ddd d MMM yyyy", CultureInfo.InvariantCulture);
+
+  /// <summary>Hours and minutes in UTC: <c>01:47</c>.</summary>
+  public static string TimeOfDay(DateTimeOffset value) => value.UtcDateTime.ToString("HH:mm", CultureInfo.InvariantCulture);
+
   /// <summary><c>0.4s</c>, <c>48s</c>, <c>2m 10s</c>, <c>1h 03m</c>; null without an end.</summary>
   public static string? Duration(DateTimeOffset start, DateTimeOffset? end)
   {

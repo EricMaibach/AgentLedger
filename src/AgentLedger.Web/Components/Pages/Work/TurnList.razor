@@ -1,14 +1,25 @@
-@* A session's turns, oldest first (ADR 0023). One turn is expanded at a time, showing its steps one line each. Every
-   row is a real link: a turn adds a history entry, a step replaces it (data-history), applied by the page's script. *@
+@* A session's turns, oldest first (ADR 0023), under a divider for each day. One turn is expanded at a time, showing
+   its steps one line each. Every row is a real link: a turn adds a history entry, a step replaces it (data-history),
+   applied by the page's script. *@
+<div class="turn-header" aria-hidden="true">
+  <span>#</span><span>Time (UTC)</span><span>Prompt</span><span>Status</span><span class="right">Duration</span><span class="right">Tools</span>
+</div>
 <ol class="turns">
+  @{ string? day = null; }
   @foreach (var turn in Turns)
   {
     var expanded = turn.TurnId == ExpandedTurnId;
+    var turnDay = WorkFormat.Day(turn.StartedAt);
+    if (turnDay != day)
+    {
+      day = turnDay;
+      <li class="day"><time datetime="@turn.StartedAt.UtcDateTime.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)">@turnDay</time></li>
+    }
     <li class="@(turn.Source == "Injected" ? "injected" : null)" data-turn-row data-selected-turn="@(expanded ? "true" : null)">
       <a class="turn-row" href="@(expanded ? WorkLink.To(SessionId) : WorkLink.To(SessionId, turn.TurnId))" data-work-nav
          aria-expanded="@(expanded ? "true" : "false")">
         <span class="number">#@turn.Number</span>
-        <time class="time" datetime="@DisplayFormat.IsoTimestamp(turn.StartedAt)">@turn.StartedAt.UtcDateTime.ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture)</time>
+        <time class="time" datetime="@DisplayFormat.IsoTimestamp(turn.StartedAt)" title="@DisplayFormat.Timestamp(turn.StartedAt)">@WorkFormat.TimeOfDay(turn.StartedAt)</time>
         <span class="prompt">
           @if (turn.Source != "Typed")
           {

@@ -39,6 +39,43 @@ public sealed class ClaudeCodeAdapterSteps
   }
 
   [Fact]
+  public void ThinkingWrittenAgainWithItsSummaryIsOneStep()
+  {
+    // With summaries on, Claude Code writes a thinking block twice: first without text, then with its summary
+    // (seen in 195 responses, 2026-10-27). The ID stays the first line's, so it doesn't change when the summary arrives.
+    var s = new ClaudeCodeSession().PromptLine("p-1", "Go", 0)
+      .Thinking("msg_1", 1).Thinking("msg_1", 1.01, "Checking the cart first.").Text("msg_1", 2, "Done.");
+    var steps = s.Project().Turns.Single().Steps;
+
+    steps.Select(st => st.Kind).ShouldBe([StepKind.Prompt, StepKind.Thinking, StepKind.Response]);
+    var thinking = steps[1];
+    thinking.Text.ShouldBe("Checking the cart first.");
+    thinking.Id.ShouldBe(StepIdFor(StepKind.Thinking, $"{s.Lines[1].Id.Value}#0"));
+    thinking.Lineage.LineIds.ShouldBe([s.Lines[1].Id, s.Lines[2].Id]);
+  }
+
+  [Fact]
+  public void SeparateThinkingBlocksStaySeparate()
+  {
+    // Only a block without text followed by its summary is one block; two with text are two.
+    var steps = new ClaudeCodeSession().PromptLine("p-1", "Go", 0)
+      .Thinking("msg_1", 1, "First idea.").Thinking("msg_1", 2, "Second idea.")
+      .Project().Turns.Single().Steps;
+
+    steps.Count(st => st.Kind == StepKind.Thinking).ShouldBe(2);
+  }
+
+  [Fact]
+  public void ThinkingInDifferentResponsesStaysSeparate()
+  {
+    var steps = new ClaudeCodeSession().PromptLine("p-1", "Go", 0)
+      .Thinking("msg_1", 1).Thinking("msg_2", 2, "Next response's summary.")
+      .Project().Turns.Single().Steps;
+
+    steps.Count(st => st.Kind == StepKind.Thinking).ShouldBe(2);
+  }
+
+  [Fact]
   public void TextIsAResponse()
   {
     var response = new ClaudeCodeSession().PromptLine("p-1", "Go", 0).Text("msg_1", 1, "Done.").Project().Turns.Single().Steps[1];

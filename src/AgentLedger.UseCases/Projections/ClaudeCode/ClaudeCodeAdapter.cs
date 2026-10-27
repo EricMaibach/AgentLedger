@@ -58,13 +58,21 @@ public sealed class ClaudeCodeAdapter : IAgentAdapter
     }
 
     var responses = Responses(sessionId, blocks);
-    foreach (var block in blocks)
+    for (var i = 0; i < blocks.Count; i++)
     {
+      var block = blocks[i];
       var responseId = block.Model == SyntheticModel ? (ModelResponseId?)null : ModelResponseId.For(Agent, sessionId, block.MessageId);
       var key = $"{block.Line.Id.Value}#{block.Index}";
       var lineage = Sources([], [block.Line]);
       switch (block.BlockType)
       {
+        // With summaries on, Claude Code writes a thinking block twice: without text, then with its summary. One step,
+        // keeping the first line's key so the ID doesn't change when the summary arrives.
+        case "thinking" when IsSummaryOf(block, i + 1 < blocks.Count ? blocks[i + 1] : null):
+          var summary = blocks[++i];
+          steps.Add((Step.Thinking(StepId(sessionId, StepKind.Thinking, key), block.At, summary.Text, responseId,
+            Sources([], [block.Line, summary.Line])), block.Order));
+          break;
         case "thinking":
           steps.Add((Step.Thinking(StepId(sessionId, StepKind.Thinking, key), block.At, block.Text, responseId, lineage), block.Order));
           break;
@@ -96,6 +104,10 @@ public sealed class ClaudeCodeAdapter : IAgentAdapter
     return new TurnDraft(Agent, promptId, Source(promptLine?.Source), ordered[0].StartedAt, lastActivity, ordered, responses,
       Context(hooks, promptLine), hooks, blocks);
   }
+
+  private static bool IsSummaryOf(AssistantBlock block, AssistantBlock? next) =>
+    string.IsNullOrWhiteSpace(block.Text) && next is { BlockType: "thinking" } && next.MessageId == block.MessageId
+    && !string.IsNullOrWhiteSpace(next.Text);
 
   private Step? ToolCall(string sessionId, string toolUseId, AssistantBlock? block, List<HookEvent> hooks,
     ToolResultEntry? result)

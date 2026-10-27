@@ -127,14 +127,31 @@ function toggle(layout, state, side) {
   save(state);
 }
 
+// The script decides each side's column width, collapsed or not (a remembered width set here would otherwise win over
+// the stylesheet's default); the collapsed attribute only hides the pane's contents.
+const collapsedWidth = "2rem";
+const paneNames = { left: "sessions", right: "details" };
+
 function apply(layout, state) {
   for (const side of ["left", "right"]) {
-    if (state[side]) {
-      layout.style.setProperty(`--work-${side}`, `${state[side]}px`);
+    const collapsed = !!state[`${side}Collapsed`];
+    const width = collapsed ? collapsedWidth : state[side] ? `${state[side]}px` : null;
+    if (width) {
+      layout.style.setProperty(`--work-${side}`, width);
+    } else {
+      layout.style.removeProperty(`--work-${side}`);
     }
-    layout.classList.toggle(`${side}-collapsed`, !!state[`${side}Collapsed`]);
-    const divider = layout.querySelector(`[data-divider="${side}"]`);
-    divider?.setAttribute("aria-valuenow", String(state[side] ?? ""));
+    // A data attribute, not a class: Blazor rewrites the layout's class when the details open or close.
+    layout.toggleAttribute(`data-${side}-collapsed`, collapsed);
+    layout.querySelector(`[data-divider="${side}"]`)?.setAttribute("aria-valuenow", String(state[side] ?? ""));
+    const button = layout.querySelector(`[data-collapse="${side}"]`);
+    if (button) {
+      const label = `${collapsed ? "Expand" : "Collapse"} ${paneNames[side]}`;
+      button.textContent = (side === "left") === collapsed ? "›" : "‹";
+      button.setAttribute("aria-label", label);
+      button.setAttribute("title", label);
+      button.setAttribute("aria-expanded", String(!collapsed));
+    }
   }
 }
 

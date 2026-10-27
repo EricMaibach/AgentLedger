@@ -79,6 +79,37 @@ public sealed class TurnListRender : BunitContext
   }
 
   [Fact]
+  public void NamesItsColumns()
+  {
+    var list = Render<TurnList>(p => p.Add(c => c.SessionId, WorkData.SessionId).Add(c => c.Turns, [WorkData.Turn()]));
+
+    list.Find(".turn-header").TextContent.ShouldContain("Time (UTC)");
+  }
+
+  [Fact]
+  public void MarksEachNewDay()
+  {
+    // A session can span days: a divider at the top and wherever the day changes.
+    var first = WorkData.Turn();
+    var sameDay = first with { TurnId = Guid.NewGuid(), Number = 2, StartedAt = first.StartedAt.AddHours(3) };
+    var nextDay = first with { TurnId = Guid.NewGuid(), Number = 3, StartedAt = first.StartedAt.AddDays(1) };
+
+    var list = Render<TurnList>(p => p.Add(c => c.SessionId, WorkData.SessionId).Add(c => c.Turns, [first, sameDay, nextDay]));
+
+    list.FindAll(".day").Select(d => d.TextContent.Trim()).ShouldBe(["Tue 27 Oct 2026", "Wed 28 Oct 2026"]);
+  }
+
+  [Fact]
+  public void ShowsTheFullTimeOnHover()
+  {
+    var list = Render<TurnList>(p => p.Add(c => c.SessionId, WorkData.SessionId).Add(c => c.Turns, [WorkData.Turn()]));
+
+    var time = list.Find("time.time");
+    time.TextContent.ShouldBe("12:00");
+    time.GetAttribute("title").ShouldBe("2026-10-27 12:00:00 UTC");
+  }
+
+  [Fact]
   public void LabelsPromptsNotTypedByAPerson()
   {
     var list = Render<TurnList>(p => p
@@ -86,7 +117,7 @@ public sealed class TurnListRender : BunitContext
       .Add(c => c.Turns, [WorkData.Turn("Injected")]));
 
     list.Find(".source").TextContent.ShouldBe("Injected");
-    list.Find("li").ClassList.ShouldContain("injected");
+    list.Find("li[data-turn-row]").ClassList.ShouldContain("injected");
   }
 }
 
