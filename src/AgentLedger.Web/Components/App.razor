@@ -1,5 +1,6 @@
-@* The HTML shell for every page. Static server-side rendering only (ADR 0015): no blazor.web.js,
-   so pages are plain HTML and work without JavaScript. app.js only adds progressive enhancements. *@
+@* The HTML shell for every page. Pages are static server-side rendering (ADR 0015) except the work pages, which are
+   interactive over a server connection (ADR 0023). blazor.web.js starts with enhanced navigation and form handling
+   turned off, so static pages behave as plain HTML pages exactly as before; app.js only adds progressive enhancements. *@
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -12,6 +13,13 @@
 </head>
 <body>
   <Routes />
+  @* Shown by Blazor while an interactive page has lost its connection (classes components-reconnect-*). *@
+  <div id="components-reconnect-modal" class="reconnect" role="status" aria-live="polite">
+    <span class="reconnect-trying">Reconnecting…</span>
+    <span class="reconnect-failed">Connection lost. <a href="">Reload the page</a>.</span>
+  </div>
+  <script src="@Assets["_framework/blazor.web.js"]" autostart="false"></script>
+  <script>Blazor.start({ ssr: { disableDomPreservation: true } });</script>
   <script src="@Assets["app.js"]"></script>
 </body>
 </html>

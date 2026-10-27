@@ -1,0 +1,23 @@
+@page "/work/turns/{TurnId:guid}"
+@page "/work/steps/{StepId:guid}"
+@inject IMediator Mediator
+@inject NavigationManager Navigation
+
+@* Permanent short links to a turn or step (ADR 0023), for raw pages and the MCP: they redirect to the full work URL.
+   Renders nothing: the redirect or the not-found page replaces it (docs/ui.md). *@
+
+@code {
+  [Parameter] public Guid? TurnId { get; set; }
+  [Parameter] public Guid? StepId { get; set; }
+
+  protected override async Task OnInitializedAsync()
+  {
+    var result = StepId is { } stepId
+      ? await Mediator.Send(new UseCases.Work.LocateWork.LocateStepQuery(stepId))
+      : await Mediator.Send(new UseCases.Work.LocateWork.LocateTurnQuery(TurnId!.Value));
+    if (result.IsSuccess)
+      Navigation.NavigateTo(WorkLink.To(result.Value.SessionId, result.Value.TurnId, StepId));
+    else
+      Navigation.NotFound();
+  }
+}

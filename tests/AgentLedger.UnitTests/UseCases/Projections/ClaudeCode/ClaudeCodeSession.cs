@@ -71,6 +71,10 @@ internal sealed class ClaudeCodeSession
     return Line(line);
   }
 
+  // Claude Code's AI-generated session title: no timestamp, written again whenever it changes.
+  public ClaudeCodeSession AiTitle(string title) =>
+    RawLine(new JsonObject { ["type"] = "ai-title", ["sessionId"] = Id, ["aiTitle"] = title }.ToJsonString());
+
   public ClaudeCodeSession RawLine(string text, string file = "main")
   {
     _lines.Add(new TranscriptLine(AgentKind.ClaudeCode, Id, TranscriptFileName.From(file), _offset, text, Key, T0));

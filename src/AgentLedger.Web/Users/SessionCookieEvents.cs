@@ -1,5 +1,4 @@
 ﻿using System.Globalization;
-using AgentLedger.UseCases.Users.CheckSession;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 
@@ -46,8 +45,7 @@ internal sealed class SessionCookieEvents(IMediator mediator, TimeProvider clock
     }
 
     var valid = context.Principal is { } principal
-      && SessionCookie.TryRead(principal, out var userId, out var stamp)
-      && (await mediator.Send(new CheckSessionQuery(userId, stamp), context.HttpContext.RequestAborted)).IsSuccess;
+      && await new SessionCheck(mediator).IsValidAsync(principal, context.HttpContext.RequestAborted);
 
     if (!valid)
     {

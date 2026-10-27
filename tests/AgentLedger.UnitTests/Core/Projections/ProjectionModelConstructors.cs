@@ -85,6 +85,42 @@ public sealed class StepFactories
     step.ResponseId.ShouldBe(Projected.ResponseId());
   }
 
+  [Theory]
+  [InlineData("Fix the cart", "Fix the cart")]
+  [InlineData("\n\n  Fix the cart  \nthen run the tests", "Fix the cart")]
+  [InlineData("# Plan\r\nStep one", "# Plan")]
+  public void TextStepsAreSummarizedByTheirFirstLine(string text, string summary)
+  {
+    Step.Prompt(Projected.StepId(StepKind.Prompt, "p"), Projected.T0, text, Projected.Lineage()).Summary.ShouldBe(summary);
+    Step.Response(Projected.StepId(StepKind.Response, "r"), Projected.T0, text, null, Projected.Lineage()).Summary.ShouldBe(summary);
+    Step.Thinking(Projected.StepId(StepKind.Thinking, "t"), Projected.T0, text, null, Projected.Lineage()).Summary.ShouldBe(summary);
+  }
+
+  [Fact]
+  public void ThinkingWithoutTextHasNoSummary()
+  {
+    Step.Thinking(Projected.StepId(StepKind.Thinking, "t"), Projected.T0, null, null, Projected.Lineage()).Summary.ShouldBeNull();
+  }
+
+  [Fact]
+  public void SummariesAreShortened()
+  {
+    var summary = Step.Prompt(Projected.StepId(StepKind.Prompt, "p"), Projected.T0, new string('x', 500), Projected.Lineage()).Summary;
+
+    summary!.Length.ShouldBe(Step.MaxSummaryLength);
+    summary.ShouldEndWith("…");
+  }
+
+  [Fact]
+  public void ToolCallSummaryComesFromTheAdapter()
+  {
+    // What sums up a tool call depends on the tool, which only the agent's adapter knows (ADR 0003).
+    var step = Step.ToolCall(Projected.StepId(StepKind.ToolCall, "toolu_01"), Projected.T0, "Bash", "toolu_01", null, null, null, null,
+      null, Projected.Lineage(), summary: "docker ps\n--all");
+
+    step.Summary.ShouldBe("docker ps");
+  }
+
   [Fact]
   public void ResponseNeedsText()
   {
@@ -219,6 +255,14 @@ public sealed class ProjectedSessionConstructor
 
     session.Id.ShouldBe(SessionId.For(AgentKind.ClaudeCode, Projected.Session));
     session.Turns.Count.ShouldBe(2);
+  }
+
+  [Fact]
+  public void MayHaveATitle()
+  {
+    new ProjectedSession(AgentKind.ClaudeCode, Projected.Session, Projected.T0, Projected.T0, [], "  Fix the cart  ").Title
+      .ShouldBe("Fix the cart");
+    new ProjectedSession(AgentKind.ClaudeCode, Projected.Session, Projected.T0, Projected.T0, [], " ").Title.ShouldBeNull();
   }
 
   [Fact]

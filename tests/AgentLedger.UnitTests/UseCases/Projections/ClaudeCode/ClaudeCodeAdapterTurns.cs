@@ -168,6 +168,26 @@ public sealed class ClaudeCodeAdapterTurns
   }
 
   [Fact]
+  public void TitleIsTheLatestAiTitle()
+  {
+    new ClaudeCodeSession().AiTitle("Cart bug").PromptLine("p-1", "Go", 0).AiTitle("Fix the cart total").Project()
+      .Title.ShouldBe("Fix the cart total");
+  }
+
+  [Fact]
+  public void WithoutAnAiTitleTheTitleIsTheFirstPrompt()
+  {
+    new ClaudeCodeSession().PromptLine("p-1", "Fix the cart\nand its tests", 0).PromptLine("p-2", "Now the docs", 9).Project()
+      .Title.ShouldBe("Fix the cart");
+  }
+
+  [Fact]
+  public void WithoutPromptsThereIsNoTitle()
+  {
+    new ClaudeCodeSession().SessionStart(0).Project().Title.ShouldBeNull();
+  }
+
+  [Fact]
   public void SessionWithoutPromptsHasNoTurns()
   {
     var session = new ClaudeCodeSession().SessionStart(0).Project();

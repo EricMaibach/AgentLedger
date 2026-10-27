@@ -37,7 +37,8 @@ public sealed class ClaudeCodeAdapter : IAgentAdapter
       times = [.. evidence.Receipts.Select(r => r.ReceivedAt).Concat(evidence.Lines.Select(l => l.ReceivedAt))];
     if (times.Count == 0)
       throw new ArgumentException("A session's evidence can't be empty.", nameof(evidence));
-    return new ProjectedSession(Agent, evidence.NativeSessionId, times.Min(), times.Max(), turns);
+    var title = transcript.AiTitle ?? turns.FirstOrDefault()?.Steps.FirstOrDefault(s => s.Kind == StepKind.Prompt)?.Text;
+    return new ProjectedSession(Agent, evidence.NativeSessionId, times.Min(), times.Max(), turns, title);
   }
 
   private TurnDraft? Draft(string sessionId, string promptId, ClaudeCodeTranscript transcript, IReadOnlyList<HookEvent> allHooks)
@@ -119,7 +120,7 @@ public sealed class ClaudeCodeAdapter : IAgentAdapter
       : ModelResponseId.For(Agent, sessionId, block.MessageId);
     var lines = new[] { block?.Line, result?.Line }.OfType<Core.TranscriptAggregate.TranscriptLine>();
     return Step.ToolCall(StepId(sessionId, StepKind.ToolCall, toolUseId), startedAt, name, toolUseId, input, output, succeeded,
-      endedAt, responseId, Sources(hooks, lines));
+      endedAt, responseId, Sources(hooks, lines), ClaudeCodeToolSummary.Of(name, input));
   }
 
   // One response per message ID; its tokens from its last line, since a line written while streaming can carry lower

@@ -1,0 +1,15 @@
+@* A turn's status as text with a mark, never color alone (docs/ui.md). *@
+<span class="status status-@Status.ToLowerInvariant()">@Label</span>
+
+@code {
+  [Parameter, EditorRequired] public string Status { get; set; } = string.Empty;
+
+  private string Label => Status switch
+  {
+    "Completed" => "✓ Completed",
+    "Failed" => "✗ Failed",
+    "Interrupted" => "⏸ Interrupted",
+    "InProgress" => "● In progress",
+    _ => Status,
+  };
+}

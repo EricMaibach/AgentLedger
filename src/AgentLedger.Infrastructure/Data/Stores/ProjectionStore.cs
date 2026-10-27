@@ -29,6 +29,12 @@ public sealed class ProjectionStore(AppDbContext db) : IProjectionStore
     row.LastActivityAt = session.LastActivityAt;
     row.TurnCount = session.Turns.Count;
     row.ProjectionVersion = version;
+    row.Title = Storable(session.Title);
+    var latest = session.Turns.LastOrDefault()?.Context;
+    row.GitRepo = latest?.GitRepo;
+    row.GitBranch = latest?.GitBranch;
+    row.Host = latest?.Host;
+    row.User = latest?.User;
 
     foreach (var (turn, sequence) in session.Turns.Select((t, i) => (t, i)))
     {
@@ -105,6 +111,7 @@ public sealed class ProjectionStore(AppDbContext db) : IProjectionStore
     StartedAt = step.StartedAt,
     EndedAt = step.EndedAt,
     Text = Storable(step.Text),
+    Summary = Storable(step.Summary),
     ToolName = Storable(step.ToolName),
     ToolUseId = Storable(step.ToolUseId),
     ToolInput = Storable(step.ToolInput),

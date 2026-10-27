@@ -1,0 +1,125 @@
+@* The right pane (ADR 0023): one step in full, its tokens and its evidence. *@
+<article class="details" aria-labelledby="step-heading">
+  <header>
+    <h2 id="step-heading">
+      @(Step.ToolName ?? Step.Kind)
+      @if (Step.Kind == "ToolCall")
+      {
+        <span class="outcome">@(Step.Succeeded switch { true => "✓", false => "✗ failed", null => "" })</span>
+      }
+    </h2>
+    <a class="close" href="@CloseHref" data-work-nav data-history="replace" data-close aria-label="Close details" title="Close (Esc)">×</a>
+    <p class="meta">@string.Join(" · ", Meta())</p>
+  </header>
+
+  @switch (Step.Kind)
+  {
+    case "Prompt":
+      <p class="muted">@SourceText</p>
+      <MarkdownText Text="@(Step.Text ?? "")" />
+      break;
+    case "Thinking" when Step.Text is null:
+      <p class="muted">
+        Claude Code didn't record a summary of this reasoning. Set <code>"showThinkingSummaries": true</code> in Claude Code's
+        settings to record summaries in future sessions; the full reasoning is never available.
+      </p>
+      break;
+    case "Thinking" or "Response":
+      <MarkdownText Text="@(Step.Text ?? "")" />
+      break;
+    case "ToolCall":
+      <section aria-labelledby="input-heading">
+        <h3 id="input-heading">Input <CopyButton Text="@(Step.ToolInput ?? "")" Label="Copy input (exact JSON)" /></h3>
+        @if (WorkFormat.InputPairs(Step.ToolInput) is { } pairs)
+        {
+          <dl class="fields">
+            @foreach (var (name, value) in pairs)
+            {
+              <dt>@name</dt>
+              <dd><pre>@value</pre></dd>
+            }
+          </dl>
+        }
+        else if (Step.ToolInput is not null)
+        {
+          <pre>@JsonDisplay.Indent(Step.ToolInput)</pre>
+        }
+      </section>
+      <section aria-labelledby="output-heading">
+        <h3 id="output-heading">
+          @(Step.Succeeded == false ? "Error" : "Output")
+          @if (Step.ToolOutput is not null)
+          {
+            <CopyButton Text="@Step.ToolOutput" Label="Copy output" />
+          }
+        </h3>
+        @if (Step.ToolOutput is null)
+        {
+          <p class="muted">@(Step.TurnStatus == "InProgress" ? "Still running." : "No result (interrupted).")</p>
+        }
+        else
+        {
+          var (shown, hidden) = _showAll ? (Step.ToolOutput, 0) : WorkFormat.Preview(Step.ToolOutput, OutputLines);
+          <pre class="@(Step.Succeeded == false ? "error" : null)" role="@(Step.Succeeded == false ? "alert" : null)">@shown</pre>
+          @if (hidden > 0)
+          {
+            <button type="button" @onclick="() => _showAll = true">Show all (@hidden more lines)</button>
+          }
+        }
+      </section>
+      break;
+  }
+
+  @if (Step.Response is { } response)
+  {
+    <section aria-labelledby="tokens-heading">
+      <h3 id="tokens-heading">Tokens (this response)</h3>
+      <p class="meta">
+        @WorkFormat.Model(response.Model): in @WorkFormat.Tokens(response.Input) · out @WorkFormat.Tokens(response.Output)
+        · cache write @WorkFormat.Tokens(response.CacheWrite5m + response.CacheWrite1h) · cache read @WorkFormat.Tokens(response.CacheRead)
+        @if (response.Thinking > 0)
+        {
+          <span> · thinking @WorkFormat.Tokens(response.Thinking)</span>
+        }
+      </p>
+    </section>
+  }
+
+  <EvidenceList Events="Step.EvidenceEvents" Lines="Step.EvidenceLines" />
+</article>
+
+@code {
+  private const int OutputLines = 200;
+
+  [Parameter, EditorRequired] public StepDetail Step { get; set; } = default!;
+  [Parameter, EditorRequired] public string CloseHref { get; set; } = string.Empty;
+
+  private bool _showAll;
+  private Guid _shownStep;
+
+  protected override void OnParametersSet()
+  {
+    if (_shownStep != Step.StepId)
+    {
+      _shownStep = Step.StepId;
+      _showAll = false;
+    }
+  }
+
+  private IEnumerable<string> Meta()
+  {
+    yield return $"Turn #{Step.TurnNumber}";
+    yield return WorkFormat.Offset(Step.TurnStartedAt, Step.StartedAt);
+    if (WorkFormat.Duration(Step.StartedAt, Step.EndedAt) is { } duration)
+      yield return duration;
+    if (Step.Response is { } response)
+      yield return WorkFormat.Model(response.Model);
+  }
+
+  private string SourceText => Step.TurnSource switch
+  {
+    "Queued" => "Typed while the agent was busy (queued).",
+    "Injected" => "Injected by the system, not typed by a person.",
+    _ => "Typed.",
+  };
+}

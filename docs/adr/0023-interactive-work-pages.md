@@ -43,6 +43,33 @@ The audience is developers: designed for a 22" monitor and workable on a 14" lap
 - Permanent short links, such as `/work/turns/{id}` and `/work/steps/{id}`, redirect to the full URL. Raw pages and the MCP link to these.
 - The IDs are the projections' stable, content-derived IDs ([ADR 0022](0022-projections.md)), so links survive rebuilds.
 
+**Details decided for build step 2** (2026-10-27)
+- **Navigation:** Work is the first section and `/` opens it. The lens picker shows only the lenses that exist (session in step 2).
+- **Left pane:**
+  - sessions by last activity, newest first, 50 at a time ("Show older sessions");
+  - each row: the session's **title** (Claude Code's latest `ai-title`, else its first prompt), project, branch, turn count, last activity, and an "active" mark (activity in the last 10 minutes);
+  - every row is a real link.
+- **Middle pane:**
+  - a four-line session summary;
+  - the turns, oldest first, opened scrolled to the newest or the selected turn;
+  - one turn expanded at a time;
+  - steps one line each: time since the turn started, kind or tool name, a one-line **summary** (from the adapter: e.g. a Bash command, a file path) and, for tools, outcome and duration.
+- **Right pane:**
+  - a header with kind, status, turn number, time offset, duration and model;
+  - the content for the kind: a tool's input as name and value pairs or JSON, its output with "Show all" beyond 200 lines;
+  - the response's tokens, labelled "this response";
+  - evidence, collapsed: each source expands to its raw JSON in place and links to its raw page in a new tab.
+- **Text:** prompts, responses and thinking are rendered as **Markdown (Markdig)**, with a switch to the plain text. Raw HTML is shown as text, links only for `http`, `https` and `mailto` (new tab, `noopener noreferrer nofollow`), and images become links, never loaded. Tool input and output stay monospace and exact.
+- **Data:** queries through Mediator over the projection tables (`ListSessions`, `GetSession`, `ListTurns`, `ListSteps`, `GetStep`, `LocateTurn`, `LocateStep`). **No `/api/work` endpoints yet:** the MCP server (step 5) calls the same queries; endpoints come when a script needs them.
+- **Mechanics:**
+  - every selection is a real link, so the page also works as plain page loads without a connection;
+  - choosing a session or a turn adds a history entry; choosing a step replaces it;
+  - the connection rechecks the security stamp every few minutes, like the cookie (ADR 0018);
+  - `panes.js` sets the pane widths as CSS variables;
+  - Esc closes the details;
+  - a styled "Reconnecting…" notice;
+  - data as of loading, until live updates.
+
 **Not decided here:** how the server learns that new data has landed for live updates (an in-process signal or Postgres `LISTEN/NOTIFY`). That will be decided when live updates are built.
 
 ## Consequences

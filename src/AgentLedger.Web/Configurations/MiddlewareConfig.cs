@@ -44,7 +44,8 @@ public static class MiddlewareConfig
     // The web UI (ADR 0015): static assets (open, so the login page is styled), server-rendered pages,
     // sign-out, and / → the raw event list until projection pages exist.
     app.MapStaticAssets().AllowAnonymous();
-    app.MapRazorComponents<AgentLedger.Web.Components.App>();
+    app.MapRazorComponents<AgentLedger.Web.Components.App>()
+       .AddInteractiveServerRenderMode(); // the work pages (ADR 0023)
     app.MapSignOut();
 
     // The first transcript page (v0.4.0) was per session; its URL keeps working (docs/ui.md, permanent URLs).
@@ -52,7 +53,7 @@ public static class MiddlewareConfig
         Results.Redirect(AgentLedger.Web.Components.Formatting.RawTranscriptsLink.To(
           new AgentLedger.Web.Components.Formatting.RawTranscriptsQueryString(Session: session, File: file is null or "main" ? null : file))))
       .ExcludeFromDescription();
-    app.MapGet("/", () => Results.Redirect(AgentLedger.Web.Components.Formatting.RawEventsLink.Path)).ExcludeFromDescription();
+    app.MapGet("/", () => Results.Redirect(AgentLedger.Web.Components.Formatting.WorkLink.Path)).ExcludeFromDescription();
 
     if (app.Environment.IsDevelopment())
     {

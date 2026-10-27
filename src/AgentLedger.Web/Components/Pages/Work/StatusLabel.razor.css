@@ -1,0 +1,12 @@
+.status {
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+
+.status-failed {
+  color: var(--color-danger);
+}
+
+.status-inprogress {
+  color: var(--color-accent);
+}

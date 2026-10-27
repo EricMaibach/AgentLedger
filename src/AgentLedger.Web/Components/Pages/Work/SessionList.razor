@@ -1,0 +1,39 @@
+@* The left pane in the session lens (ADR 0023): sessions by last activity, newest first. Every row is a real link;
+   the page's script turns a plain click into an in-page change. *@
+<ol class="sessions">
+  @foreach (var session in Sessions)
+  {
+    <li>
+      <a href="@WorkLink.To(session.SessionId)" data-work-nav aria-current="@(session.SessionId == SelectedId ? "page" : null)">
+        <span class="title">@(session.Title ?? DisplayFormat.ShortId(session.NativeSessionId))</span>
+        <span class="meta">@string.Join(" · ", Meta(session))</span>
+        <span class="meta">
+          <Timestamp Value="session.LastActivityAt" />
+          @if (session.Active)
+          {
+            <span class="active">● active</span>
+          }
+        </span>
+      </a>
+    </li>
+  }
+</ol>
+@if (Sessions.Count == 0)
+{
+  <EmptyState Message="No sessions yet. They appear here a few seconds after an agent sends its first events." />
+}
+@if (HasMore)
+{
+  <button type="button" class="older" @onclick="OnShowOlder">Show older sessions</button>
+}
+
+@code {
+  [Parameter, EditorRequired] public IReadOnlyList<SessionListItem> Sessions { get; set; } = [];
+  [Parameter] public Guid? SelectedId { get; set; }
+  [Parameter] public bool HasMore { get; set; }
+  [Parameter] public EventCallback OnShowOlder { get; set; }
+
+  private static IEnumerable<string> Meta(SessionListItem session) =>
+    new[] { WorkFormat.Project(session.GitRepo), session.GitBranch, session.TurnCount == 1 ? "1 turn" : $"{session.TurnCount} turns" }
+      .OfType<string>();
+}

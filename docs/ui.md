@@ -11,7 +11,7 @@ This document grows with the UI. If a page needs something not covered here, add
 - **Evidence is one click away.** Anything interpreted (projections, summaries) links to the raw events it came from ([ADR 0015](adr/0015-web-ui-and-evidence.md)).
 - **Raw means raw.** The "Raw events" section shows what agents sent, with no agent-specific interpretation. Meaningful summaries, event categories and colors come with projections.
 - **Every view is a URL.** Filters and paging live in the query string, so any view can be bookmarked, shared and reached with the back button.
-- **Works without JavaScript.** Pages are rendered on the server; script only enhances (e.g. copy buttons).
+- **Works without JavaScript.** Pages are rendered on the server; script only enhances (e.g. copy buttons). The work pages are interactive (ADR 0023), but every selection there is still a real link, so they work as plain page loads too.
 - **Light and dark themes**, following the operating system.
 
 ## Structure
@@ -21,15 +21,24 @@ A header with the product name and the ledger's version (from `/status`, e.g. `0
 
 | Section | Pages | Phase |
 |---|---|---|
-| *(future)* Sessions, Tool calls, Tags, Cost | projection pages; the main pages once they exist | 4 |
+| **Work** | `/work` (units of work, turns, steps; interactive), short links `/work/turns/{id}` and `/work/steps/{id}` | 4 |
 | **Raw events** | `/raw/events`, `/raw/events/{eventId}` | 2 (v1) |
 | **Raw transcripts** | `/raw/transcripts`, `/raw/transcripts/{lineId}` | 3 |
 | *(future)* Ingestion health | arrivals, duplicate rate, unknown event types | later |
 | **Settings** | `/settings/api-keys`; *(future)* users | 2 |
 
-"Raw events", "Raw transcripts" and "Settings" exist today. The home page `/` redirects to "Raw events" until projection pages exist.
+"Work", "Raw events", "Raw transcripts" and "Settings" exist today. The home page `/` and the product name go to "Work".
 
 The header also holds the account menu when signed in: the username, "Change password" and a "Sign out" button (a POST form, [ADR 0018](adr/0018-password-login.md)). Signed out, the header shows only the product name and version, and there is no section navigation.
+
+### Work pages
+The main pages once projections exist ([ADR 0022](adr/0022-projections.md), [ADR 0023](adr/0023-interactive-work-pages.md)): one interactive page, `/work`, with three panes.
+- **Left: units of work** for the chosen lens (only *Session* so far). Each row: title, project, branch, turn count, last activity, "● active" within 10 minutes. 50 at a time, "Show older sessions" for more.
+- **Middle: the selected unit**, a four-line summary, then its turns oldest first (number, time, prompt summary, status, duration, tool count; injected and queued prompts labelled). One turn expanded at a time; its steps one line each (time since the turn started, kind or tool name, summary, outcome and duration for tools; thinking without text says "summary not available", dimmed).
+- **Right: the selected step** (only while one is selected): header, content for its kind (Markdown text with a Rendered/Plain switch; a tool's input as name and value pairs or JSON, its output with "Show all" beyond 200 lines, an error shown as an alert), the response's tokens ("this response"), and the evidence, collapsed, each source expanding to its raw JSON in place and linking to its raw page in a new tab.
+- **URL:** `/work?unit=…&turn=…&step=…` (the session lens is the default and left out). Choosing a session or turn adds a history entry; choosing a step replaces it. The close link and Esc remove the step.
+- **Panes:** the dividers are `role="separator"` elements: drag, or arrow keys when focused, to resize; double-click, Enter, Home or End, or the collapse button to collapse. Widths and collapsed panes are remembered per browser. Below 1,200 px the details slide over the turns.
+- **Markdown** goes through `MarkdownDisplay` only (see ADR 0023 for its rules): raw HTML shown as text, links only for http, https and mailto (new tab, `noopener noreferrer nofollow`), images never loaded.
 
 ### Raw transcripts pages
 Built **exactly like Raw events** ([ADR 0020](adr/0020-transcripts.md)): the same layout, building blocks and URL rules, so the two raw sections read the same way.
@@ -102,7 +111,14 @@ Every color, font, size and spacing value comes from CSS variables defined once 
 
 ## Blazor conventions
 
-- **Render mode:** static server-side rendering (the default). A component may use `@rendermode InteractiveServer` only when it needs live interaction a link or form can't provide; note why in a comment.
+- **Render mode:** static server-side rendering (the default). A component may use `@rendermode InteractiveServer` only when it needs live interaction a link or form can't provide; note why in a comment. So far that's the work page.
+- **Interactive pages** ([ADR 0023](adr/0023-interactive-work-pages.md)):
+  - Prerendered, so the first response is complete HTML. Data loaded while prerendering is handed over with `[PersistentState]` rather than loaded again.
+  - Selections are real links (`data-work-nav`); the page's script turns a plain click into a history update plus a call to the page, so the page never re-renders on the server for a click. Modified clicks open new tabs as usual.
+  - The connection rechecks the security stamp (`CircuitSessionRevalidation`); when it fails, the page goes to the login page.
+  - `blazor.web.js` starts with `ssr: { disableDomPreservation: true }`: enhanced navigation and form handling stay off, so static pages behave exactly as plain HTML pages.
+  - Lost connections show the shell's small "Reconnecting…" notice.
+- **Script modules:** a page's own behavior lives in a collocated module (`Page.razor.js`), imported by the page. A module may set CSS variables on the element it manages (e.g. pane widths); markup still never has inline styles.
 - **Folders** (in `src/AgentLedger.Web/Components/`):
   - `Layout/` for the shell (`MainLayout`, `NavMenu`);
   - `Pages/<Section>/` for routable pages, e.g. `Pages/Raw/RawEvents.razor` (`@page "/raw/events"`);
@@ -112,4 +128,4 @@ Every color, font, size and spacing value comes from CSS variables defined once 
 - **Styles:** tokens and base styles in `wwwroot/app.css`; component-specific styles in the component's scoped `.razor.css`. No inline `style` attributes.
 - **Script:** only small progressive enhancements in `wwwroot/app.js` (e.g. copy to clipboard). The page must still work if it doesn't load.
 - **Logic out of markup:** formatting and mapping (timestamps, display names, JSON formatting) live in plain C# classes with unit tests; components only render.
-- **Testing:** functional tests request pages over HTTP against the Testcontainers database and check the status and key content (e.g. a stored event's ID appears in `/raw/events`).
+- **Testing:** functional tests request pages over HTTP against the Testcontainers database and check the status and key content (e.g. a stored event's ID appears in `/raw/events`). Interactive behavior (clicks, toggles, selection changes) is tested with **bUnit** against a substituted `IMediator`.

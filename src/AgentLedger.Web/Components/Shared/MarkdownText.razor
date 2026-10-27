@@ -1,0 +1,23 @@
+@* Prompt, response or thinking text (ADR 0023): rendered Markdown by default, the exact text one click away.
+   Rendering is MarkdownDisplay's: untrusted text never runs script, loads images or links anywhere unsafe. *@
+<div class="markdown-text">
+  <div class="view-switch" role="group" aria-label="Text view">
+    <button type="button" aria-pressed="@(!_plain)" @onclick="() => _plain = false">Rendered</button>
+    <button type="button" aria-pressed="@_plain" @onclick="() => _plain = true">Plain</button>
+    <CopyButton Text="@Text" Label="Copy text" />
+  </div>
+  @if (_plain)
+  {
+    <pre class="plain">@Text</pre>
+  }
+  else
+  {
+    <div class="rendered">@MarkdownDisplay.Render(Text)</div>
+  }
+</div>
+
+@code {
+  [Parameter, EditorRequired] public string Text { get; set; } = string.Empty;
+
+  private bool _plain;
+}

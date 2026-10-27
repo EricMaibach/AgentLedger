@@ -81,8 +81,11 @@ public sealed record ProjectedSession
   public DateTimeOffset LastActivityAt { get; }
   public IReadOnlyList<Turn> Turns { get; }
 
+  // A short name for the session, when its agent gives one or the adapter can derive one.
+  public string? Title { get; }
+
   public ProjectedSession(AgentKind agent, string nativeSessionId, DateTimeOffset startedAt, DateTimeOffset lastActivityAt,
-    IEnumerable<Turn> turns)
+    IEnumerable<Turn> turns, string? title = null)
   {
     Agent = Guard.Against.Null(agent);
     NativeSessionId = Guard.Against.NullOrWhiteSpace(nativeSessionId);
@@ -94,5 +97,6 @@ public sealed record ProjectedSession
     Turns = [.. Guard.Against.Null(turns)];
     if (Turns.Select(t => t.Id).Distinct().Count() != Turns.Count)
       throw new ArgumentException("A session's turns are unique.", nameof(turns));
+    Title = Step.FirstLine(title);
   }
 }

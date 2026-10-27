@@ -25,6 +25,9 @@ internal sealed class ClaudeCodeTranscript
   public List<ToolResultEntry> Results { get; } = [];
   public List<DateTimeOffset> Times { get; } = [];
 
+  // Claude Code's AI-generated session title: the latest one written.
+  public string? AiTitle { get; private set; }
+
   public static ClaudeCodeTranscript Read(IEnumerable<TranscriptLine> lines)
   {
     var transcript = new ClaudeCodeTranscript();
@@ -37,6 +40,9 @@ internal sealed class ClaudeCodeTranscript
       {
         using var json = JsonDocument.Parse(line.Text);
         var root = json.RootElement;
+        // Title lines have no timestamp.
+        if (String(root, "type") == "ai-title" && String(root, "aiTitle") is { } title)
+          transcript.AiTitle = title;
         if (root.ValueKind != JsonValueKind.Object || !TryTime(root, out var at))
           continue;
         transcript.Times.Add(at);

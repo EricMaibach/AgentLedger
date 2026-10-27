@@ -1,0 +1,51 @@
+.details {
+  padding: var(--space-3) var(--space-4);
+}
+
+header {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: var(--space-3);
+}
+
+h2 {
+  margin: 0;
+  font-family: var(--font-mono);
+}
+
+h3 {
+  font-size: var(--text-base);
+  margin: var(--space-4) 0 var(--space-2);
+}
+
+.meta {
+  grid-column: 1 / -1;
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.close {
+  font-size: var(--text-lg);
+  text-decoration: none;
+  padding: 0 var(--space-2);
+}
+
+pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--color-code-bg);
+  padding: var(--space-2);
+  border-radius: var(--radius);
+  margin: 0;
+}
+
+pre.error {
+  border-left: 3px solid var(--color-danger);
+}
+
+dl.fields dd pre {
+  padding: var(--space-1) var(--space-2);
+}

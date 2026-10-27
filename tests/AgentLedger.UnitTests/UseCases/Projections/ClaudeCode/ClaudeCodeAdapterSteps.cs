@@ -66,6 +66,26 @@ public sealed class ClaudeCodeAdapterSteps
     call.Lineage.LineIds.ShouldBe([s.Lines[1].Id, s.Lines[2].Id]);
   }
 
+  [Theory]
+  [InlineData("Bash", """{"command":"dotnet test\ndotnet format","description":"Run tests"}""", "dotnet test")]
+  [InlineData("Read", """{"file_path":"/workspace/src/Cart.cs","limit":20}""", "/workspace/src/Cart.cs")]
+  [InlineData("Edit", """{"file_path":"/workspace/src/Cart.cs","old_string":"a","new_string":"b"}""", "/workspace/src/Cart.cs")]
+  [InlineData("Write", """{"file_path":"/workspace/docs/a.md","content":"x"}""", "/workspace/docs/a.md")]
+  [InlineData("NotebookEdit", """{"notebook_path":"/w/a.ipynb","new_source":"x"}""", "/w/a.ipynb")]
+  [InlineData("Grep", """{"pattern":"TODO","path":"src"}""", "TODO")]
+  [InlineData("Glob", """{"pattern":"**/*.cs"}""", "**/*.cs")]
+  [InlineData("WebFetch", """{"url":"https://example.com","prompt":"Summarize"}""", "https://example.com")]
+  [InlineData("WebSearch", """{"query":"blazor bunit"}""", "blazor bunit")]
+  [InlineData("Agent", """{"description":"Research tracing","prompt":"…","subagent_type":"general-purpose"}""", "Research tracing")]
+  [InlineData("Skill", """{"skill":"web-ui"}""", "web-ui")]
+  [InlineData("mcp__docs__search", """{"limit":5,"q":"pricing"}""", "pricing")]
+  [InlineData("SomethingNew", """{"count":3,"flag":true}""", null)]
+  public void ToolCallsAreSummarizedByTheirKeyArgument(string tool, string input, string? summary)
+  {
+    new ClaudeCodeSession().PromptLine("p-1", "Go", 0).ToolUse("msg_1", 1, "toolu_1", tool, input)
+      .Project().Turns.Single().Steps[1].Summary.ShouldBe(summary);
+  }
+
   [Fact]
   public void ErrorResultMeansFailed()
   {

@@ -1,0 +1,91 @@
+/* Three panes (ADR 0023): sessions, turns, step details. Widths come from CSS variables that WorkPage.razor.js sets
+   (remembered per browser); the defaults suit a 22" monitor and still work on a 14" laptop. */
+.work-layout {
+  --work-left: 280px;
+  --work-right: 40%;
+  display: grid;
+  grid-template-columns: var(--work-left) 6px minmax(480px, 1fr) 6px var(--work-right);
+  height: 100%;
+  min-height: 0;
+}
+
+.work-layout.no-details {
+  grid-template-columns: var(--work-left) 6px minmax(480px, 1fr);
+}
+
+.work-layout.left-collapsed {
+  --work-left: 2rem;
+}
+
+.work-layout.right-collapsed:not(.no-details) {
+  --work-right: 2rem;
+}
+
+.left-collapsed .units ::deep > :not(.pane-header),
+.right-collapsed .details ::deep > * {
+  display: none;
+}
+
+.pane {
+  overflow: auto;
+  min-width: 0;
+}
+
+.units {
+  border-right: 1px solid var(--color-border);
+}
+
+.pane-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.left-collapsed .pane-header span {
+  display: none;
+}
+
+.collapse {
+  padding: 0 var(--space-2);
+}
+
+.divider {
+  cursor: col-resize;
+  background: var(--color-border);
+  touch-action: none;
+}
+
+.divider:hover,
+.divider:focus-visible {
+  background: var(--color-accent);
+}
+
+.details {
+  border-left: 1px solid var(--color-border);
+}
+
+/* Narrow screens: the details slide over the turns instead of squeezing them. */
+@media (max-width: 1200px) {
+  .work-layout:not(.no-details) {
+    grid-template-columns: var(--work-left) 6px minmax(0, 1fr);
+  }
+
+  .work-layout [data-divider="right"] {
+    display: none;
+  }
+
+  .details {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(90vw, 640px);
+    background: var(--color-bg);
+    box-shadow: -4px 0 16px rgb(0 0 0 / 0.2);
+    z-index: 5;
+  }
+}

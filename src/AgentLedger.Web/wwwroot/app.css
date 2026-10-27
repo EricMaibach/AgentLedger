@@ -163,3 +163,48 @@ html.js .copy-button {
 html.js .copy-button:hover {
   color: var(--color-accent);
 }
+
+/* The work pages fill the window below the header (ADR 0023): only while their layout is on the page. */
+body:has(.work-layout) {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+}
+
+body:has(.work-layout) .app-main {
+  flex: 1;
+  min-height: 0;
+  padding: 0;
+}
+
+/* Blazor's reconnection notice for interactive pages: hidden until Blazor adds its classes. */
+.reconnect {
+  display: none;
+  position: fixed;
+  bottom: var(--space-4);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: var(--space-2) var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  font-size: var(--text-sm);
+  z-index: 10;
+}
+
+.reconnect.components-reconnect-show,
+.reconnect.components-reconnect-failed,
+.reconnect.components-reconnect-rejected {
+  display: block;
+}
+
+.reconnect .reconnect-failed,
+.reconnect.components-reconnect-failed .reconnect-trying,
+.reconnect.components-reconnect-rejected .reconnect-trying {
+  display: none;
+}
+
+.reconnect.components-reconnect-failed .reconnect-failed,
+.reconnect.components-reconnect-rejected .reconnect-failed {
+  display: inline;
+}

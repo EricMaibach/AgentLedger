@@ -1,0 +1,70 @@
+@* A session's turns, oldest first (ADR 0023). One turn is expanded at a time, showing its steps one line each. Every
+   row is a real link: a turn adds a history entry, a step replaces it (data-history), applied by the page's script. *@
+<ol class="turns">
+  @foreach (var turn in Turns)
+  {
+    var expanded = turn.TurnId == ExpandedTurnId;
+    <li class="@(turn.Source == "Injected" ? "injected" : null)" data-turn-row data-selected-turn="@(expanded ? "true" : null)">
+      <a class="turn-row" href="@(expanded ? WorkLink.To(SessionId) : WorkLink.To(SessionId, turn.TurnId))" data-work-nav
+         aria-expanded="@(expanded ? "true" : "false")">
+        <span class="number">#@turn.Number</span>
+        <time class="time" datetime="@DisplayFormat.IsoTimestamp(turn.StartedAt)">@turn.StartedAt.UtcDateTime.ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture)</time>
+        <span class="prompt">
+          @if (turn.Source != "Typed")
+          {
+            <span class="source">@turn.Source</span>
+          }
+          @(turn.PromptSummary ?? "(no prompt text)")
+        </span>
+        <StatusLabel Status="@turn.Status" />
+        <span class="duration">@WorkFormat.Duration(turn.StartedAt, turn.EndedAt)</span>
+        <span class="tools">@Tools(turn)</span>
+      </a>
+      @if (expanded && Steps is not null)
+      {
+        <ol class="steps">
+          @foreach (var step in Steps)
+          {
+            <li>
+              <a class="step-row @(step.Kind == "Thinking" && step.Summary is null ? "dim" : null)"
+                 href="@WorkLink.To(SessionId, turn.TurnId, step.StepId)" data-work-nav data-history="replace"
+                 aria-current="@(step.StepId == SelectedStepId ? "true" : null)">
+                <span class="offset">@WorkFormat.Offset(turn.StartedAt, step.StartedAt)</span>
+                <span class="kind">@(step.ToolName ?? step.Kind)</span>
+                <span class="step-summary">@(step.Summary ?? (step.Kind == "Thinking" ? "summary not available" : ""))</span>
+                @if (step.Kind == "ToolCall")
+                {
+                  <span class="outcome">@Outcome(step)</span>
+                  <span class="duration">@WorkFormat.Duration(step.StartedAt, step.EndedAt)</span>
+                }
+              </a>
+            </li>
+          }
+        </ol>
+      }
+    </li>
+  }
+</ol>
+
+@code {
+  [Parameter, EditorRequired] public Guid SessionId { get; set; }
+  [Parameter, EditorRequired] public IReadOnlyList<TurnListItem> Turns { get; set; } = [];
+  [Parameter] public Guid? ExpandedTurnId { get; set; }
+  [Parameter] public IReadOnlyList<StepListItem>? Steps { get; set; }
+  [Parameter] public Guid? SelectedStepId { get; set; }
+
+  private static string Tools(TurnListItem turn) => turn.ToolCalls switch
+  {
+    0 => "",
+    1 => "1 tool" + (turn.FailedToolCalls > 0 ? " · 1 failed" : ""),
+    _ => $"{turn.ToolCalls} tools" + (turn.FailedToolCalls > 0 ? $" · {turn.FailedToolCalls} failed" : ""),
+  };
+
+  // Text with the mark, never color alone (docs/ui.md).
+  private static string Outcome(StepListItem step) => step.Succeeded switch
+  {
+    true => "✓ ok",
+    false => "✗ failed",
+    null => "… no result",
+  };
+}

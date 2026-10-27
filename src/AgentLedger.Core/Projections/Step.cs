@@ -4,6 +4,8 @@
 // lines. Created through the factory for its kind, which knows what that kind needs.
 public sealed record Step
 {
+  public const int MaxSummaryLength = 200;
+
   public StepId Id { get; }
   public StepKind Kind { get; }
   public DateTimeOffset StartedAt { get; }
@@ -11,6 +13,10 @@ public sealed record Step
 
   // Prompt, thinking or response text. Null for thinking without text (most thinking holds only a signature).
   public string? Text { get; }
+
+  // One line that sums the step up in a list: the first line of its text, or for a tool call whatever the agent's
+  // adapter picks (a command, a file path). Shortened to MaxSummaryLength.
+  public string? Summary { get; }
 
   public string? ToolName { get; }
   public string? ToolUseId { get; }
@@ -28,7 +34,8 @@ public sealed record Step
   public Lineage Lineage { get; }
 
   private Step(StepId id, StepKind kind, DateTimeOffset startedAt, DateTimeOffset? endedAt, string? text, string? toolName,
-    string? toolUseId, string? toolInput, string? toolOutput, bool? succeeded, ModelResponseId? responseId, Lineage lineage)
+    string? toolUseId, string? toolInput, string? toolOutput, bool? succeeded, ModelResponseId? responseId, Lineage lineage,
+    string? summary = null)
   {
     Id = id;
     Kind = kind;
@@ -37,6 +44,7 @@ public sealed record Step
       throw new ArgumentException("A step can't end before it starts.", nameof(endedAt));
     EndedAt = endedAt;
     Text = text;
+    Summary = FirstLine(summary ?? text);
     ToolName = toolName;
     ToolUseId = toolUseId;
     ToolInput = toolInput;
@@ -58,7 +66,16 @@ public sealed record Step
       lineage);
 
   public static Step ToolCall(StepId id, DateTimeOffset at, string toolName, string toolUseId, string? input, string? output,
-    bool? succeeded, DateTimeOffset? endedAt, ModelResponseId? responseId, Lineage lineage) =>
+    bool? succeeded, DateTimeOffset? endedAt, ModelResponseId? responseId, Lineage lineage, string? summary = null) =>
     new(id, StepKind.ToolCall, at, endedAt, null, Guard.Against.NullOrWhiteSpace(toolName),
-      Guard.Against.NullOrWhiteSpace(toolUseId), input, output, succeeded, responseId, lineage);
+      Guard.Against.NullOrWhiteSpace(toolUseId), input, output, succeeded, responseId, lineage, summary);
+
+  // The first line with any text, trimmed and shortened.
+  internal static string? FirstLine(string? text)
+  {
+    var line = text?.Split('\n').Select(l => l.Trim()).FirstOrDefault(l => l.Length > 0);
+    if (line is null)
+      return null;
+    return line.Length <= MaxSummaryLength ? line : line[..(MaxSummaryLength - 1)] + "…";
+  }
 }

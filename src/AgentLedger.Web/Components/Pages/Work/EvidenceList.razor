@@ -1,0 +1,60 @@
+@inject IMediator Mediator
+@* A step's raw sources (ADR 0015, ADR 0023): each one line, its raw JSON shown in place on request, and a link to its
+   raw page in a new tab, so the work view keeps its place. *@
+<details class="evidence">
+  <summary>Evidence (@(Events.Count + Lines.Count))</summary>
+  <ul>
+    @foreach (var source in Events)
+    {
+      <li>
+        <span class="label">@(source.EventType ?? "event")</span>
+        @if (source.CapturedAt is { } at)
+        {
+          <span class="muted">@at.UtcDateTime.ToString("HH:mm:ss.fff", System.Globalization.CultureInfo.InvariantCulture)</span>
+        }
+        <a href="@WorkLink.RawEvent(source.EventId)" target="_blank" rel="noopener">raw event</a>
+        <button type="button" @onclick="() => ToggleEventAsync(source.EventId)">@(_raw.ContainsKey(source.EventId) ? "Hide JSON" : "Show JSON")</button>
+        @if (_raw.TryGetValue(source.EventId, out var json))
+        {
+          <pre>@json</pre>
+        }
+      </li>
+    }
+    @foreach (var source in Lines)
+    {
+      <li>
+        <span class="label">transcript · @(source.LineType ?? "line")</span>
+        <span class="muted">@source.File · offset @source.ByteOffset?.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)</span>
+        <a href="@WorkLink.RawLine(source.LineId)" target="_blank" rel="noopener">raw line</a>
+        <button type="button" @onclick="() => ToggleLineAsync(source.LineId)">@(_raw.ContainsKey(source.LineId) ? "Hide JSON" : "Show JSON")</button>
+        @if (_raw.TryGetValue(source.LineId, out var json))
+        {
+          <pre>@json</pre>
+        }
+      </li>
+    }
+  </ul>
+</details>
+
+@code {
+  [Parameter, EditorRequired] public IReadOnlyList<EvidenceEvent> Events { get; set; } = [];
+  [Parameter, EditorRequired] public IReadOnlyList<EvidenceLine> Lines { get; set; } = [];
+
+  private readonly Dictionary<Guid, string> _raw = [];
+
+  private async Task ToggleEventAsync(Guid eventId)
+  {
+    if (_raw.Remove(eventId))
+      return;
+    var result = await Mediator.Send(new GetRawEventQuery(eventId));
+    _raw[eventId] = result.IsSuccess ? JsonDisplay.Indent(result.Value.Payload) : "(not stored)";
+  }
+
+  private async Task ToggleLineAsync(Guid lineId)
+  {
+    if (_raw.Remove(lineId))
+      return;
+    var result = await Mediator.Send(new UseCases.Transcripts.GetTranscriptLine.GetTranscriptLineQuery(lineId));
+    _raw[lineId] = result.IsSuccess ? JsonDisplay.Indent(result.Value.Line.Text) : "(not stored)";
+  }
+}

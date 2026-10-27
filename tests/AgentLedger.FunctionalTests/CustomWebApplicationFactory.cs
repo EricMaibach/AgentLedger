@@ -64,6 +64,9 @@ public sealed class CustomWebApplicationFactory<TProgram> : WebApplicationFactor
     // services, before ConfigureAppConfiguration overrides apply. Environment variables (the dev
     // container sets ConnectionStrings__AgentLedger) would otherwise win, and tests would hit the dev database.
     builder.UseSetting("ConnectionStrings:AgentLedger", ConnectionString);
+    // Resolve static web assets from the framework and from components (blazor.web.js, collocated .razor.js modules)
+    // as Development and published builds do; the Testing environment doesn't on its own.
+    builder.UseStaticWebAssets();
 
     foreach (var (key, value) in _settings)
     {

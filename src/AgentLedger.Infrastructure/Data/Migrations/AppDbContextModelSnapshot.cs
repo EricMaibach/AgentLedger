@@ -667,6 +667,18 @@ namespace AgentLedger.Infrastructure.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<string>("GitBranch")
+                        .HasColumnType("text")
+                        .HasColumnName("git_branch");
+
+                    b.Property<string>("GitRepo")
+                        .HasColumnType("text")
+                        .HasColumnName("git_repo");
+
+                    b.Property<string>("Host")
+                        .HasColumnType("text")
+                        .HasColumnName("host");
+
                     b.Property<DateTimeOffset>("LastActivityAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("last_activity_at");
@@ -684,6 +696,10 @@ namespace AgentLedger.Infrastructure.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("started_at");
 
+                    b.Property<string>("Title")
+                        .HasColumnType("text")
+                        .HasColumnName("title");
+
                     b.Property<int>("TurnCount")
                         .HasColumnType("integer")
                         .HasColumnName("turn_count");
@@ -692,12 +708,19 @@ namespace AgentLedger.Infrastructure.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
 
+                    b.Property<string>("User")
+                        .HasColumnType("text")
+                        .HasColumnName("user");
+
                     b.HasKey("Id")
                         .HasName("pk_sessions");
 
                     b.HasIndex("Agent", "NativeSessionId")
                         .IsUnique()
                         .HasDatabaseName("ix_sessions_agent_native_session_id");
+
+                    b.HasIndex("LastActivityAt", "Id")
+                        .HasDatabaseName("ix_sessions_last_activity_at_id");
 
                     b.HasIndex("ProjectionVersion", "LastActivityAt")
                         .HasDatabaseName("ix_sessions_projection_version_last_activity_at");
@@ -753,6 +776,10 @@ namespace AgentLedger.Infrastructure.Data.Migrations
                     b.Property<bool?>("Succeeded")
                         .HasColumnType("boolean")
                         .HasColumnName("succeeded");
+
+                    b.Property<string>("Summary")
+                        .HasColumnType("text")
+                        .HasColumnName("summary");
 
                     b.Property<string>("Text")
                         .HasColumnType("text")

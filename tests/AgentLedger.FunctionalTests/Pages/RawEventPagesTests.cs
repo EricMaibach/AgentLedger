@@ -41,15 +41,6 @@ public sealed class RawEventPagesTests(CustomWebApplicationFactory<Program> fact
   }
 
   [Fact]
-  public async Task TheHomePageGoesToRawEvents()
-  {
-    var response = await _client.GetAsync("/");
-
-    response.StatusCode.ShouldBe(HttpStatusCode.Redirect);
-    response.Headers.Location!.OriginalString.ShouldBe("/raw/events");
-  }
-
-  [Fact]
   public async Task ListsASessionsEventsWithLinksToTheirDetail()
   {
     var eventId = await SendAsync("UserPromptSubmit");

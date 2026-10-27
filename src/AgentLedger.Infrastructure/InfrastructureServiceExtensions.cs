@@ -8,6 +8,7 @@ using AgentLedger.UseCases.Git;
 using AgentLedger.UseCases.Projections;
 using AgentLedger.UseCases.Transcripts;
 using AgentLedger.UseCases.Users;
+using AgentLedger.UseCases.Work;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace AgentLedger.Infrastructure;
@@ -46,6 +47,7 @@ public static class InfrastructureServiceExtensions
     services.AddScoped<ITranscriptQueryService, TranscriptQueryService>();
     services.AddScoped<IProjectionSourceQuery, ProjectionSourceQuery>();
     services.AddScoped<IProjectionStore, ProjectionStore>();
+    services.AddScoped<IWorkQueryService, WorkQueryService>();
     services.AddSingleton<IProjectionLock>(new PostgresProjectionLock(connectionString));
     services.AddSingleton<IPasswordHasher, IdentityPasswordHasher>();
 

@@ -14,8 +14,10 @@ startupLogger.LogInformation("Starting web host");
 
 builder.Services.AddServiceConfigs(startupLogger, builder);
 
-// The web UI: Blazor components rendered on the server (static SSR; no interactive render modes, ADR 0015).
-builder.Services.AddRazorComponents();
+// The web UI: Blazor components rendered on the server, static by default (ADR 0015); the work pages are interactive
+// over a server connection (ADR 0023).
+builder.Services.AddRazorComponents()
+                .AddInteractiveServerComponents();
 builder.Services.AddLedgerAuthentication(builder.Configuration);
 builder.Services.AddRequestDecompression(); // gzipped transcript batches (ADR 0020)
 

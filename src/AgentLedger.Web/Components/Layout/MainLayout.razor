@@ -1,10 +1,10 @@
 @inherits LayoutComponentBase
 
-@* The navigation shell (docs/ui.md, "Structure"). Projection sections (Sessions, Cost…) slot in above
-   "Raw events" in Phase 4. Sections and the account menu show only when signed in. *@
+@* The navigation shell (docs/ui.md, "Structure"). Work (projections, ADR 0023) comes first, then the raw sections.
+   Sections and the account menu show only when signed in. *@
 <a class="skip-link" href="#main">Skip to content</a>
 <header class="app-header">
-  <a class="brand" href="@RawEventsLink.Path">AgentLedger</a>
+  <a class="brand" href="@WorkLink.Path">AgentLedger</a>
   <span class="version" title="Running build">@BuildInfo.Version</span>
   @if (Username is not null)
   {
@@ -21,6 +21,7 @@
 @if (Username is not null)
 {
   <nav class="app-nav" aria-label="Sections">
+    <NavLink href="@WorkLink.Path" Match="NavLinkMatch.Prefix">Work</NavLink>
     <NavLink href="@RawEventsLink.Path" Match="NavLinkMatch.Prefix">Raw events</NavLink>
     <NavLink href="@RawTranscriptsLink.Path" Match="NavLinkMatch.Prefix">Raw transcripts</NavLink>
     <NavLink href="/settings/api-keys" Match="NavLinkMatch.Prefix">Settings</NavLink>

@@ -1,0 +1,49 @@
+@* The selected session at a glance (ADR 0023): four lines above its turns. *@
+<header class="summary">
+  <h1>
+    @(Detail.Session.Title ?? Detail.Session.NativeSessionId)
+    @if (Detail.Session.Active)
+    {
+      <span class="active">● active</span>
+    }
+  </h1>
+  <p>@string.Join(" · ", Where())</p>
+  <p>
+    <Timestamp Value="Detail.Session.StartedAt" /> → <Timestamp Value="Detail.Session.LastActivityAt" />
+    · @Turns
+  </p>
+  <p>
+    @(Detail.ToolCalls == 1 ? "1 tool call" : $"{Detail.ToolCalls} tool calls")@(Detail.FailedToolCalls > 0 ? $" ({Detail.FailedToolCalls} failed)" : "")
+    @foreach (var model in Detail.TokensByModel)
+    {
+      <span class="model">· @WorkFormat.Model(model.Model): @WorkFormat.Tokens(model.Input) in / @WorkFormat.Tokens(model.Output) out
+        · @WorkFormat.Tokens(model.CacheRead) cache read</span>
+    }
+  </p>
+</header>
+
+@code {
+  [Parameter, EditorRequired] public SessionDetail Detail { get; set; } = default!;
+
+  private IEnumerable<string> Where()
+  {
+    yield return AgentDisplayName.For(AgentWireName.FromAgentKindName(Detail.Session.Agent));
+    if (WorkFormat.Project(Detail.Session.GitRepo) is { } project)
+      yield return project;
+    if (Detail.Session.GitBranch is { } branch)
+      yield return branch;
+    if (Detail.User is { } user)
+      yield return Detail.Host is { } host ? $"{user}@{host}" : user;
+  }
+
+  private string Turns
+  {
+    get
+    {
+      var count = Detail.Session.TurnCount;
+      var notable = Detail.TurnsByStatus.Where(s => s.Key is "Failed" or "Interrupted")
+        .Select(s => $"{s.Value} {s.Key.ToLowerInvariant()}").ToList();
+      return (count == 1 ? "1 turn" : $"{count} turns") + (notable.Count > 0 ? $" ({string.Join(", ", notable)})" : "");
+    }
+  }
+}

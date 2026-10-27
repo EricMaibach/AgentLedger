@@ -25,6 +25,9 @@ public sealed class ProjectionStoreTests(PostgresFixture db)
     var row = await context.Sessions.SingleAsync(s => s.Id == session.Id.Value);
     (row.Agent, row.NativeSessionId, row.StartedAt, row.LastActivityAt, row.TurnCount, row.ProjectionVersion)
       .ShouldBe(("ClaudeCode", _session, T0, T0.AddMinutes(9), 1, 3));
+    row.Title.ShouldBe("Fix the cart");
+    // Where the session was last working: its latest turn's context, so lists need no join.
+    (row.GitRepo, row.GitBranch, row.Host, row.User).ShouldBe(("github.com/acme/shop", "main", "devbox", "eric"));
 
     var turn = await context.Turns.SingleAsync(t => t.SessionId == row.Id);
     var expected = session.Turns[0];
@@ -45,6 +48,7 @@ public sealed class ProjectionStoreTests(PostgresFixture db)
       (Guid?)expected.Responses[0].Id.Value));
     steps[1].Text.ShouldBeNull();
     steps[0].Text.ShouldBe("Go");
+    (steps[0].Summary, steps[1].Summary, steps[2].Summary).ShouldBe(("Go", null, "ls"));
 
     var response = await context.ModelResponses.SingleAsync(r => r.TurnId == turn.Id);
     (response.MessageId, response.Model, response.RespondedAt, response.SessionId).ShouldBe(("msg_1", "claude-opus-5-5",
@@ -68,6 +72,20 @@ public sealed class ProjectionStoreTests(PostgresFixture db)
     (await context.Turns.Where(t => t.SessionId == sessionId).Select(t => t.PromptId).ToListAsync()).ShouldBe(["p-2"]);
     (await context.Steps.CountAsync(s => s.SessionId == sessionId)).ShouldBe(3);
     (await context.ModelResponses.CountAsync(r => r.SessionId == sessionId)).ShouldBe(1);
+  }
+
+  [Fact]
+  public async Task SessionContextIsItsLatestTurns()
+  {
+    var later = Turn("p-2", 10);
+    later = new Turn(later.Id, later.PromptId, later.Source, later.Status, later.StartedAt, later.EndedAt,
+      later.Context with { GitBranch = "feature/cart" }, later.Steps, later.Responses);
+
+    await ReplaceAsync(Session(Turn("p-1", 0), later), version: 1);
+
+    using var scope = db.Services.CreateScope();
+    (await scope.ServiceProvider.GetRequiredService<AppDbContext>().Sessions.SingleAsync(s => s.NativeSessionId == _session))
+      .GitBranch.ShouldBe("feature/cart");
   }
 
   [Fact]
@@ -129,7 +147,7 @@ public sealed class ProjectionStoreTests(PostgresFixture db)
   }
 
   private ProjectedSession Session(params Turn[] turns) =>
-    new(AgentKind.ClaudeCode, _session, T0, T0.AddMinutes(9), turns);
+    new(AgentKind.ClaudeCode, _session, T0, T0.AddMinutes(9), turns, "Fix the cart");
 
   private Turn Turn(string promptId, int startMinute)
   {
@@ -143,7 +161,7 @@ public sealed class ProjectionStoreTests(PostgresFixture db)
       Step.Thinking(StepId.For(AgentKind.ClaudeCode, _session, StepKind.Thinking, promptId + "#0"), at.AddSeconds(1), null,
         responseId, Lineage(2)),
       Step.ToolCall(StepId.For(AgentKind.ClaudeCode, _session, StepKind.ToolCall, "toolu_1" + (promptId == "p-1" ? "" : promptId)),
-        at.AddSeconds(2), "Bash", "toolu_1", """{"command":"ls"}""", "a.txt", true, at.AddSeconds(3), responseId, Lineage(3)),
+        at.AddSeconds(2), "Bash", "toolu_1", """{"command":"ls"}""", "a.txt", true, at.AddSeconds(3), responseId, Lineage(3), "ls"),
     ];
     var context = new TurnContext("github.com/acme/shop", "main", new string('a', 40), "/w", "/w/src", "devbox", "eric");
     return new Turn(TurnId.For(AgentKind.ClaudeCode, _session, promptId), promptId, PromptSource.Queued, TurnStatus.Completed, at,

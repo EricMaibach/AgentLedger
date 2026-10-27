@@ -13,6 +13,7 @@ public sealed class SessionRowConfiguration : IEntityTypeConfiguration<SessionRo
     builder.Property(s => s.NativeSessionId).IsRequired();
     builder.HasIndex(s => new { s.Agent, s.NativeSessionId }).IsUnique();
     builder.HasIndex(s => new { s.ProjectionVersion, s.LastActivityAt }); // sessions due for a rebuild
+    builder.HasIndex(s => new { s.LastActivityAt, s.Id }); // the session list, most recent first (keyset)
   }
 }
 

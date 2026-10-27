@@ -12,6 +12,13 @@ public sealed class SessionRow
   public DateTimeOffset StartedAt { get; set; }
   public DateTimeOffset LastActivityAt { get; set; }
   public int TurnCount { get; set; }
+  public string? Title { get; set; }
+
+  // Where the session was last working (its latest turn's context), so session lists need no join.
+  public string? GitRepo { get; set; }
+  public string? GitBranch { get; set; }
+  public string? Host { get; set; }
+  public string? User { get; set; }
 
   // The projection version that built this session: lower than the current one means it's due for a rebuild.
   public int ProjectionVersion { get; set; }
@@ -48,6 +55,7 @@ public sealed class StepRow
   public DateTimeOffset StartedAt { get; set; }
   public DateTimeOffset? EndedAt { get; set; }
   public string? Text { get; set; }
+  public string? Summary { get; set; }
   public string? ToolName { get; set; }
   public string? ToolUseId { get; set; }
   public string? ToolInput { get; set; }

@@ -31,6 +31,10 @@ public static class AuthenticationConfig
 
     services.AddSingleton<SetupWindow>();
     services.AddScoped<SessionCookieEvents>();
+    services.AddScoped<SessionCheck>();
+    // Interactive pages (ADR 0023): the signed-in user, rechecked while the page stays open.
+    services.AddCascadingAuthenticationState();
+    services.AddScoped<Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider, CircuitSessionRevalidation>();
 
     services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
       .AddCookie(options =>
