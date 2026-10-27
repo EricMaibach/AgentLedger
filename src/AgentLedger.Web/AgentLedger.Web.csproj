@@ -6,6 +6,9 @@
     <OutputType>Exe</OutputType>
     <WebProjectMode>true</WebProjectMode>
     <GenerateDocumentationFile>True</GenerateDocumentationFile>
+    <!-- Blazor's scripts (blazor.web.js) come from a package the SDK adds only when it sees .razor files. The Dockerfile
+         restores from the project files alone (for layer caching), so it must be asked for explicitly (ADR 0023). -->
+    <RequiresAspNetWebAssets>true</RequiresAspNetWebAssets>
   </PropertyGroup>
 
   <ItemGroup>

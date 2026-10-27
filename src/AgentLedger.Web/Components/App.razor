@@ -18,8 +18,17 @@
     <span class="reconnect-trying">Reconnecting…</span>
     <span class="reconnect-failed">Connection lost. <a href="">Reload the page</a>.</span>
   </div>
-  <script src="@Assets["_framework/blazor.web.js"]" autostart="false"></script>
-  <script>Blazor.start({ ssr: { disableDomPreservation: true } });</script>
+  @* Only for signed-in users: no signed-out page is interactive, and signed out the script itself is refused (deny by
+     default, ADR 0018), so the login page would get HTML in its place. *@
+  @if (HttpContext?.User.Identity?.IsAuthenticated == true)
+  {
+    <script src="@Assets["_framework/blazor.web.js"]" autostart="false"></script>
+    <script>Blazor.start({ ssr: { disableDomPreservation: true } });</script>
+  }
   <script src="@Assets["app.js"]"></script>
 </body>
 </html>
+
+@code {
+  [CascadingParameter] public HttpContext? HttpContext { get; set; }
+}

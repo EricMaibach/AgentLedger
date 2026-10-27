@@ -135,6 +135,16 @@ public sealed class WorkPagesTests(CustomWebApplicationFactory<Program> factory)
     html.ShouldContain("disableDomPreservation: true");
   }
 
+  [Fact]
+  public async Task SignedOutPagesDontLoadBlazor()
+  {
+    // Signed out, the script would be refused (deny by default) and the login page's HTML returned in its place.
+    var html = await (await factory.CreateBrowser().GetAsync("/login")).Content.ReadAsStringAsync();
+
+    html.ShouldNotContain("blazor.web");
+    html.ShouldNotContain("Blazor.start");
+  }
+
   private async Task<string> GetPageAsync(string url, HttpStatusCode expected = HttpStatusCode.OK)
   {
     var response = await _browser.GetAsync(url);

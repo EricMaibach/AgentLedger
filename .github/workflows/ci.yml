@@ -59,3 +59,21 @@ jobs:
           test -z "$output" || { echo "hook produced output: $output"; exit 1; }
           # Events are the .json files at the top of the spool; git and transcript batches have folders of their own.
           test "$(find "$RUNNER_TEMP/spool" -maxdepth 1 -name '*.json' | wc -l)" -eq 1 || { echo "event was not spooled"; ls -R "$RUNNER_TEMP/spool"; exit 1; }
+
+  # Builds the API image as the release does and checks it holds the scripts the interactive pages need (ADR 0023):
+  # the Dockerfile restores from project files alone, and once shipped an image without blazor.web.js, which left the
+  # work page as plain links.
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build the image
+        run: docker build -t agentledger-api:ci .
+
+      - name: Check the image's web assets
+        run: |
+          for route in _framework/blazor.web.js Components/Pages/Work/WorkPage.razor.js; do
+            docker run --rm --entrypoint grep agentledger-api:ci -q "\"Route\":\"$route\"" /app/AgentLedger.Web.staticwebassets.endpoints.json \
+              || { echo "missing from the image: $route"; exit 1; }
+          done
