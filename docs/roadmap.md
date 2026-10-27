@@ -26,7 +26,7 @@ agent hook ──stdin──► agentledger CLI ──HTTP──► API ──�
 1. **Capture.** Every hook event from Claude Code lands in Postgres as a raw event. Done, apart from final verification; the stable ledger records this project's own development.
 2. **Visibility and access (released in v0.2.0 and v0.3.0; user management, HTTPS and GitHub login when needed).** People and AI can see what was logged without direct database access, and every entry point is authenticated. A web UI (raw event explorer) and read API, password login, scoped API keys (ingest required on `POST /events`), HTTPS, and optional GitHub login. Pulled ahead of transcripts: without it there's no way to view or validate the ledger, and ingest is currently open to the network.
 3. **Transcripts (released in v0.4.0 and v0.4.1).** The CLI reads agent transcripts incrementally on every hook, capturing assistant responses, reasoning (where present) and per-response token usage, which hooks don't expose ([ADR 0020](adr/0020-transcripts.md)).
-4. **Projections.** Deduplicated agent events, then sessions, turns, tool calls and cost, derived from raw events. The UI gains session and cost views; the read-only MCP server ([ADR 0008](adr/0008-read-only-mcp-server.md)) exposes them to AI.
+4. **Projections (designed in [ADR 0022](adr/0022-projections.md) and [ADR 0023](adr/0023-interactive-work-pages.md)).** Sessions, turns and their steps, merged from hook events and transcripts, grouped into units of work (session, day, branch, commit, release, workflow tag, and an Auto default), with token usage per model and lineage to the raw evidence. A work page with three panes; the read-only MCP server ([ADR 0008](adr/0008-read-only-mcp-server.md)) right after the first projections.
 5. **Delivery.** Mostly done early: CI on every push, the container image and GitHub Releases (ADR 0014). Remaining: architecture tests, and CLI binaries attached to releases.
 6. **More agents.** Capture real payloads, then an adapter per agent: Codex, Copilot CLI, VS Code Copilot, Cortex Code.
 
@@ -75,7 +75,25 @@ Each step is designed with the user first (one topic at a time), then built test
    - an **allowlist** of GitHub users or an organization, since GitHub login alone admits any GitHub account;
    - each installation registers its own GitHub OAuth app. Password login remains the default.
 
-## Next task: git context (before projections)
+## Next task: Phase 4, projections
+
+**Goal:** turn the raw evidence (hook events, transcript lines, git commits and tags) into what the agents did, grouped into units of work, each projected row linked to its evidence. Decisions: [ADR 0022](adr/0022-projections.md) (model, merging, lenses, commit attribution, tokens, lineage, engine) and [ADR 0023](adr/0023-interactive-work-pages.md) (the interactive work pages).
+
+**Scope (after researching existing tools, 2026-10-26):** units of work tied to git are the centre; trace viewing, evaluations and prompt management are well covered elsewhere and stay out. The MCP server comes right after the first projections, because agents querying their own history is the other gap the research found.
+
+**Steps (test-first, each released and checked against the stable ledger):**
+1. 🔨 (built 2026-10-26, not yet released) Engine and core projections, no UI: the neutral model in Core; the Claude Code adapter for prompts, thinking, responses and tool calls (hooks and transcript merged), with sanitized fixtures; projection tables with stable content-derived IDs and lineage arrays; the background worker (watermarks over `updated_at`, a whole session rebuilt at a time, advisory lock, projection version). Check: turns against prompts, tool calls against Pre/Post pairs, tokens against unique `message.id`s.
+   - Built: Core `Projections/` (content-derived `SessionId`, `TurnId`, `StepId`, `ModelResponseId`; `StepKind`, `TurnStatus`, `PromptSource`; `Lineage`, `TokenUsage`, `Step`, `Turn`, `ProjectedSession`); UseCases `IAgentAdapter` and `ClaudeCodeAdapter` (hand-written fixtures copying real shapes; subagent events left for step 3), `RunProjections` (one pass: changed sessions, then a rebuild batch of 50), `ProjectionVersion.Current`; Infrastructure tables `sessions`, `turns`, `steps`, `model_responses`, `projection_state` (migration `AddProjections`, plus an `updated_at` index on `transcript_lines`), `ProjectionStore` (EF, a session replaced in one transaction; NUL shown as U+FFFD), `ProjectionSourceQuery`, `PostgresProjectionLock` (unpooled connection); Web `ProjectionWorker` (settings `Projections:Enabled`, `Lag`, `Interval`, `RetryDelay`).
+   - Dry run on this session's real data before building storage (2026-10-26, read-only, counts only): 299 turns, 1,124 model responses (= unique message IDs), 885 tool calls; it found subagent tool events (with `agent_id`) being taken as the turn's own calls, Stop events missing from turn lineage, and older tool events without `prompt_id`; all three fixed with tests.
+   - Changed from the ADR while building: the worker polls rather than waiting for a signal; the watermark's upper bound is the current time minus the lag, not `max(updated_at)` minus the lag (`docs/architecture.md` corrected); `steps.tool_input` is `text`, not `jsonb`.
+   - Rollout check: compare with raw counts as above, and watch the pass time in the log (`Projected … in … ms`): long sessions are rebuilt whole on every change.
+2. The work page with the session lens: `/work` in Interactive Server, bUnit, three resizable and collapsible panes, selection in the URL and short links, turns expanding to steps, the details pane with evidence; `docs/ui.md` gains the interactive-page conventions.
+3. The remaining steps: subagents (nested), context and event steps, internal helper counts; interrupted, failed, compacted and in-progress turns.
+4. Git lenses (branch, commit attribution with reasons, release, Auto), day and workflow tag.
+5. The read-only MCP server, designed with the user first.
+6. Finishing touches: "Used in" back-links on raw pages, the rebuild progress notice, the narrow-screen details overlay.
+
+## Last task: git context (before projections, done)
 
 **Goal:** capture which commit each event was based on, and the repository's commits and tags as they appear, so Phase 4 can group work by commits and releases. Capture can't be backfilled, so it comes first. Decisions: [ADR 0021](adr/0021-git-context.md).
 
@@ -83,9 +101,9 @@ Each step is designed with the user first (one topic at a time), then built test
 1. ✅ (released in v0.4.2, 2026-10-26; the dev container's events record their commit) `HEAD` on every event: `gitCommit` read from `.git` in the CLI (loose or packed ref, detached `HEAD`, worktrees; none on a branch with no commits), envelope field (ADR 0011), `CaptureContext.GitCommit` (full lowercase hash, else 400) and `context_git_commit`, shown on the event page.
 2. ✅ Commit records: per-worktree state and lock (`GitRepositoryStateStore`); when `HEAD` moved, `git rev-list --reverse --since=<baseline>` then `git log -z --name-status` for at most 200 commits, oldest first (baseline on first sight, 1,000 files per commit, 2 s timeout); a `spool/git/` folder; `git_commits` table (`GitCommit`, content-derived ID from repository and hash) with `IGitObservationStore`; `POST /git/observations`; `status` and `flush` cover it. Repositories without a remote are named `<host>:<working tree>`, with the same host as events (`AGENTLEDGER_HOST`). Release order: server first (an old server answers 404, and the CLI drops the batch).
 3. ✅ Tag observations: a fingerprint of the tag files (`refs/tags/`, `packed-refs`); `git for-each-ref` when it changed, compared with the last list (state per shared git folder, so worktrees report a tag once); changes existing (baseline), created, moved, deleted, each with the commits it needs; batches of 1,000; `git_tag_observations` (append-only; each observation has an ID the CLI assigns, so a batch sent twice by parallel hooks is stored once), stored in one transaction with the batch's commits. `GitCommitCatchUp` became `GitCatchUp`.
-4. ✅ Rollout check (2026-10-26, v0.4.5): the 3 commits since the baseline match `git log` exactly (parents, messages, file lists); the 7 local tags match `git for-each-ref`. Found: each baseline tag stored twice (a batch sent by two parallel hooks), fixed by client-assigned observation IDs; the 7 duplicate rows from before the fix are exact copies, left in place.
+4. ✅ Rollout check (2026-10-26, v0.4.5): the 3 commits since the baseline match `git log` exactly (parents, messages, file lists); the 7 local tags match `git for-each-ref`. Found: each baseline tag stored twice (a batch sent by two parallel hooks), fixed by client-assigned observation IDs; the 7 duplicate rows from before the fix are exact copies, left in place. After the fix (v0.4.6): `v0.4.4` and `v0.4.5`, fetched from GitHub, were each recorded once as created, at the commits git reports; the new commit `ec4be68` arrived too.
 
-Then Phase 4, projections: the design started 2026-10-26 with a two-layer model (an activity hierarchy of project, session, turn, responses, tool calls and subagents; units of work as a chosen lens: tag, branch, session, commit or day, with an Auto default), to be written up as an ADR.
+**Next:** Phase 4, projections (above).
 
 ## Last task: transcripts (Phase 3, done)
 
@@ -113,16 +131,8 @@ API keys released in v0.3.0 ([ADR 0019](adr/0019-api-keys.md)); the dev containe
 
 ## Later phases (outline)
 
-- **Transcripts (Phase 3):** designed in [ADR 0020](adr/0020-transcripts.md); see "Next task".
-- **Projections (Phase 4):**
-  - **Lineage (required):** every projected row stores the IDs of the raw events it was built from, so the UI can link to the evidence ([ADR 0015](adr/0015-web-ui-and-evidence.md)).
-  - **Agent events** (`agent_events`): receipts deduplicated by `event_id` with idempotent upserts ([ADR 0010](adr/0010-raw-landing-accepts-duplicates.md)). Probably the first projection, since the others build on it.
-  - **Sessions:** keyed by `(agent, native session ID)`, with activity periods and an inferred end ([ADR 0004](adr/0004-session-end-is-inferred.md)), plus lineage (clear, resume, fork) recorded as relationships.
-  - **Turns:** grouped by Claude Code's `prompt_id`.
-  - **Tool calls:** Pre/Post paired by `tool_use_id`, failures included.
-  - **Token usage and cost.**
-  - Projections are built by per-agent adapters ([ADR 0003](adr/0003-agent-neutral-core-with-adapters.md)) and can be rebuilt from raw events.
-- **Known capture quirks the Claude Code adapter must handle** (details in the research doc):
+- **Projections (Phase 4):** designed in [ADR 0022](adr/0022-projections.md) and [ADR 0023](adr/0023-interactive-work-pages.md); see "Next task". Duplicate receipts are deduplicated by `event_id` inside each session's rebuild ([ADR 0010](adr/0010-raw-landing-accepts-duplicates.md)), rather than in a separate `agent_events` table as first sketched here.
+- **Known capture quirks the Claude Code adapter must handle** (details in the research doc; how each is handled is in ADR 0022):
   - internal helper subagents with an empty `agent_type` and no SubagentStart;
   - `UserPromptSubmit` events for injected messages that weren't typed by a human;
   - `SessionStart` with nothing after it;
@@ -156,6 +166,8 @@ API keys released in v0.3.0 ([ADR 0019](adr/0019-api-keys.md)); the dev containe
 - **CLI viewing commands** (`agentledger events …`): decided against for now (2026-10-01); revisit if a real need appears. They would call the read API with a read-scoped API key, so they only make sense after API keys exist.
 - **Hash-chaining** the raw event table for tamper evidence (possible because payloads are stored byte-for-byte; [ADR 0009](adr/0009-ledger-storage-details.md)).
 - **Redaction** of secrets and sensitive data, on the client side before sending, and/or on the server.
+- **Optional estimated cost** (decided against for Phase 4, 2026-10-26; [ADR 0022](adr/0022-projections.md)): an instance-wide setting, off by default, showing "estimated list-price cost" from a price table per model and effective date (token kinds, fast mode, service tier, long context), cross-checked against Claude Code's `cost-state` totals. Useful where agents are billed per token (automated pipelines, API keys, Bedrock, Vertex) and as the one way to compare tokens across models. Added by rebuilding projections; no data is lost by waiting.
+- **Reading other attribution formats** as extra evidence: Entire checkpoints (`Entire-Checkpoint:` commit trailers), git-ai's git notes, the Agent Trace format, and Claude Code's OpenTelemetry (which records the commit on `git commit`).
 - **Cost rollups** per session and per tag.
 - **Automated review of agent sessions** against `architecture.md`, as an external consumer of the ledger:
   - Deterministic rules (dependency direction) as architecture tests in CI (NetArchTest/ArchUnitNET).

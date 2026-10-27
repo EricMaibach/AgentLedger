@@ -1,6 +1,6 @@
 # 0015. Web UI: Blazor static rendering, no component library, raw data as evidence
 
-- **Status:** Accepted
+- **Status:** Accepted (amended by [ADR 0023](0023-interactive-work-pages.md): the work pages use Interactive Server)
 - **Date:** 2026-10-01
 
 ## Context

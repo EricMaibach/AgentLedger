@@ -466,6 +466,9 @@ namespace AgentLedger.Infrastructure.Data.Migrations
                     b.HasIndex("ApiKeyId")
                         .HasDatabaseName("ix_transcript_lines_api_key_id");
 
+                    b.HasIndex("UpdatedAt")
+                        .HasDatabaseName("ix_transcript_lines_updated_at");
+
                     b.HasIndex("ReceivedAt", "ByteOffset", "Id")
                         .HasDatabaseName("ix_transcript_lines_received_at_byte_offset_id");
 
@@ -524,6 +527,383 @@ namespace AgentLedger.Infrastructure.Data.Migrations
                         .HasDatabaseName("ix_users_username");
 
                     b.ToTable("users", (string)null);
+                });
+
+            modelBuilder.Entity("AgentLedger.Infrastructure.Data.Projections.ModelResponseRow", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<long>("CacheReadTokens")
+                        .HasColumnType("bigint")
+                        .HasColumnName("cache_read_tokens");
+
+                    b.Property<long>("CacheWrite1hTokens")
+                        .HasColumnType("bigint")
+                        .HasColumnName("cache_write1h_tokens");
+
+                    b.Property<long>("CacheWrite5mTokens")
+                        .HasColumnType("bigint")
+                        .HasColumnName("cache_write5m_tokens");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<long>("InputTokens")
+                        .HasColumnType("bigint")
+                        .HasColumnName("input_tokens");
+
+                    b.Property<string>("MessageId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("message_id");
+
+                    b.Property<string>("Model")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("model");
+
+                    b.Property<long>("OutputTokens")
+                        .HasColumnType("bigint")
+                        .HasColumnName("output_tokens");
+
+                    b.Property<DateTimeOffset>("RespondedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("responded_at");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("session_id");
+
+                    b.PrimitiveCollection<Guid[]>("SourceEventIds")
+                        .IsRequired()
+                        .HasColumnType("uuid[]")
+                        .HasColumnName("source_event_ids");
+
+                    b.PrimitiveCollection<Guid[]>("SourceLineIds")
+                        .IsRequired()
+                        .HasColumnType("uuid[]")
+                        .HasColumnName("source_line_ids");
+
+                    b.Property<long>("ThinkingTokens")
+                        .HasColumnType("bigint")
+                        .HasColumnName("thinking_tokens");
+
+                    b.Property<Guid>("TurnId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("turn_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<long>("WebFetches")
+                        .HasColumnType("bigint")
+                        .HasColumnName("web_fetches");
+
+                    b.Property<long>("WebSearches")
+                        .HasColumnType("bigint")
+                        .HasColumnName("web_searches");
+
+                    b.HasKey("Id")
+                        .HasName("pk_model_responses");
+
+                    b.HasIndex("SessionId")
+                        .HasDatabaseName("ix_model_responses_session_id");
+
+                    b.HasIndex("SourceLineIds")
+                        .HasDatabaseName("ix_model_responses_source_line_ids");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("SourceLineIds"), "gin");
+
+                    b.HasIndex("TurnId")
+                        .HasDatabaseName("ix_model_responses_turn_id");
+
+                    b.ToTable("model_responses", (string)null);
+                });
+
+            modelBuilder.Entity("AgentLedger.Infrastructure.Data.Projections.ProjectionStateRow", b =>
+                {
+                    b.Property<string>("Name")
+                        .HasColumnType("text")
+                        .HasColumnName("name");
+
+                    b.Property<int>("AppliedVersion")
+                        .HasColumnType("integer")
+                        .HasColumnName("applied_version");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<DateTimeOffset?>("Watermark")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("watermark");
+
+                    b.HasKey("Name")
+                        .HasName("pk_projection_state");
+
+                    b.ToTable("projection_state", (string)null);
+                });
+
+            modelBuilder.Entity("AgentLedger.Infrastructure.Data.Projections.SessionRow", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Agent")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("agent");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset>("LastActivityAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_activity_at");
+
+                    b.Property<string>("NativeSessionId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("native_session_id");
+
+                    b.Property<int>("ProjectionVersion")
+                        .HasColumnType("integer")
+                        .HasColumnName("projection_version");
+
+                    b.Property<DateTimeOffset>("StartedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("started_at");
+
+                    b.Property<int>("TurnCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("turn_count");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_sessions");
+
+                    b.HasIndex("Agent", "NativeSessionId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_sessions_agent_native_session_id");
+
+                    b.HasIndex("ProjectionVersion", "LastActivityAt")
+                        .HasDatabaseName("ix_sessions_projection_version_last_activity_at");
+
+                    b.ToTable("sessions", (string)null);
+                });
+
+            modelBuilder.Entity("AgentLedger.Infrastructure.Data.Projections.StepRow", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset?>("EndedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("ended_at");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("kind");
+
+                    b.Property<Guid?>("ResponseId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("response_id");
+
+                    b.Property<int>("Sequence")
+                        .HasColumnType("integer")
+                        .HasColumnName("sequence");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("session_id");
+
+                    b.PrimitiveCollection<Guid[]>("SourceEventIds")
+                        .IsRequired()
+                        .HasColumnType("uuid[]")
+                        .HasColumnName("source_event_ids");
+
+                    b.PrimitiveCollection<Guid[]>("SourceLineIds")
+                        .IsRequired()
+                        .HasColumnType("uuid[]")
+                        .HasColumnName("source_line_ids");
+
+                    b.Property<DateTimeOffset>("StartedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("started_at");
+
+                    b.Property<bool?>("Succeeded")
+                        .HasColumnType("boolean")
+                        .HasColumnName("succeeded");
+
+                    b.Property<string>("Text")
+                        .HasColumnType("text")
+                        .HasColumnName("text");
+
+                    b.Property<string>("ToolInput")
+                        .HasColumnType("text")
+                        .HasColumnName("tool_input");
+
+                    b.Property<string>("ToolName")
+                        .HasColumnType("text")
+                        .HasColumnName("tool_name");
+
+                    b.Property<string>("ToolOutput")
+                        .HasColumnType("text")
+                        .HasColumnName("tool_output");
+
+                    b.Property<string>("ToolUseId")
+                        .HasColumnType("text")
+                        .HasColumnName("tool_use_id");
+
+                    b.Property<Guid>("TurnId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("turn_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_steps");
+
+                    b.HasIndex("SessionId")
+                        .HasDatabaseName("ix_steps_session_id");
+
+                    b.HasIndex("SourceEventIds")
+                        .HasDatabaseName("ix_steps_source_event_ids");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("SourceEventIds"), "gin");
+
+                    b.HasIndex("SourceLineIds")
+                        .HasDatabaseName("ix_steps_source_line_ids");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("SourceLineIds"), "gin");
+
+                    b.HasIndex("TurnId", "Sequence")
+                        .HasDatabaseName("ix_steps_turn_id_sequence");
+
+                    b.ToTable("steps", (string)null);
+                });
+
+            modelBuilder.Entity("AgentLedger.Infrastructure.Data.Projections.TurnRow", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Directory")
+                        .HasColumnType("text")
+                        .HasColumnName("directory");
+
+                    b.Property<DateTimeOffset?>("EndedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("ended_at");
+
+                    b.Property<string>("GitBranch")
+                        .HasColumnType("text")
+                        .HasColumnName("git_branch");
+
+                    b.Property<string>("GitCommit")
+                        .HasColumnType("text")
+                        .HasColumnName("git_commit");
+
+                    b.Property<string>("GitRepo")
+                        .HasColumnType("text")
+                        .HasColumnName("git_repo");
+
+                    b.Property<string>("GitWorktree")
+                        .HasColumnType("text")
+                        .HasColumnName("git_worktree");
+
+                    b.Property<string>("Host")
+                        .HasColumnType("text")
+                        .HasColumnName("host");
+
+                    b.Property<string>("PromptId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("prompt_id");
+
+                    b.Property<int>("Sequence")
+                        .HasColumnType("integer")
+                        .HasColumnName("sequence");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("session_id");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("source");
+
+                    b.PrimitiveCollection<Guid[]>("SourceEventIds")
+                        .IsRequired()
+                        .HasColumnType("uuid[]")
+                        .HasColumnName("source_event_ids");
+
+                    b.PrimitiveCollection<Guid[]>("SourceLineIds")
+                        .IsRequired()
+                        .HasColumnType("uuid[]")
+                        .HasColumnName("source_line_ids");
+
+                    b.Property<DateTimeOffset>("StartedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("started_at");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("status");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("User")
+                        .HasColumnType("text")
+                        .HasColumnName("user");
+
+                    b.HasKey("Id")
+                        .HasName("pk_turns");
+
+                    b.HasIndex("SourceEventIds")
+                        .HasDatabaseName("ix_turns_source_event_ids");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("SourceEventIds"), "gin");
+
+                    b.HasIndex("SourceLineIds")
+                        .HasDatabaseName("ix_turns_source_line_ids");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("SourceLineIds"), "gin");
+
+                    b.HasIndex("SessionId", "Sequence")
+                        .HasDatabaseName("ix_turns_session_id_sequence");
+
+                    b.ToTable("turns", (string)null);
                 });
 
             modelBuilder.Entity("AgentLedger.Core.AgentEventReceiptAggregate.AgentEventReceipt", b =>
@@ -589,6 +969,36 @@ namespace AgentLedger.Infrastructure.Data.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_transcript_lines_api_keys_api_key_id");
+                });
+
+            modelBuilder.Entity("AgentLedger.Infrastructure.Data.Projections.ModelResponseRow", b =>
+                {
+                    b.HasOne("AgentLedger.Infrastructure.Data.Projections.TurnRow", null)
+                        .WithMany()
+                        .HasForeignKey("TurnId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_model_responses_turns_turn_id");
+                });
+
+            modelBuilder.Entity("AgentLedger.Infrastructure.Data.Projections.StepRow", b =>
+                {
+                    b.HasOne("AgentLedger.Infrastructure.Data.Projections.TurnRow", null)
+                        .WithMany()
+                        .HasForeignKey("TurnId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_steps_turns_turn_id");
+                });
+
+            modelBuilder.Entity("AgentLedger.Infrastructure.Data.Projections.TurnRow", b =>
+                {
+                    b.HasOne("AgentLedger.Infrastructure.Data.Projections.SessionRow", null)
+                        .WithMany()
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_turns_sessions_session_id");
                 });
 #pragma warning restore 612, 618
         }

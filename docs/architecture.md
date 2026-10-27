@@ -102,7 +102,7 @@ Web ──► UseCases ──► Core
 Any process that reads new or changed rows (e.g. a projection builder) works in bounded windows:
 
 1. Read the stored **low** watermark.
-2. Take the **high** watermark as `max(updated_at)` minus a short safety lag (a few seconds). Rows only become visible at commit, while their timestamp is taken earlier, at transaction start. The lag lets in-flight transactions commit before their window is closed.
+2. Take the **high** watermark as the current time minus a short safety lag (a few seconds). Rows only become visible at commit, while their timestamp is taken earlier, at transaction start. The lag lets in-flight transactions commit before their window is closed. (Not `max(updated_at)` minus the lag: then the newest rows would wait until newer ones arrive, so the last activity before a quiet period would never be processed.)
 3. Process the rows where `low < updated_at <= high`, **idempotently**. Ties and overlap are harmless.
 4. Store high as the next low.
 

@@ -5,6 +5,7 @@ using AgentLedger.Infrastructure.Users;
 using AgentLedger.UseCases.AgentEventReceipts.ListRawEvents;
 using AgentLedger.UseCases.ApiKeys;
 using AgentLedger.UseCases.Git;
+using AgentLedger.UseCases.Projections;
 using AgentLedger.UseCases.Transcripts;
 using AgentLedger.UseCases.Users;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -43,6 +44,9 @@ public static class InfrastructureServiceExtensions
     services.AddScoped<ITranscriptStore, TranscriptStore>();
     services.AddScoped<IGitObservationStore, GitObservationStore>();
     services.AddScoped<ITranscriptQueryService, TranscriptQueryService>();
+    services.AddScoped<IProjectionSourceQuery, ProjectionSourceQuery>();
+    services.AddScoped<IProjectionStore, ProjectionStore>();
+    services.AddSingleton<IProjectionLock>(new PostgresProjectionLock(connectionString));
     services.AddSingleton<IPasswordHasher, IdentityPasswordHasher>();
 
     logger.LogInformation("{Project} services registered", "Infrastructure");

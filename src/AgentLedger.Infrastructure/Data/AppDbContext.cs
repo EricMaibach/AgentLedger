@@ -3,6 +3,7 @@ using AgentLedger.Core.ApiKeyAggregate;
 using AgentLedger.Core.GitAggregate;
 using AgentLedger.Core.TranscriptAggregate;
 using AgentLedger.Core.UserAggregate;
+using AgentLedger.Infrastructure.Data.Projections;
 
 namespace AgentLedger.Infrastructure.Data;
 
@@ -20,6 +21,13 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
   public DbSet<TranscriptFile> TranscriptFiles => Set<TranscriptFile>();
   public DbSet<GitCommit> GitCommits => Set<GitCommit>();
   public DbSet<GitTagObservation> GitTagObservations => Set<GitTagObservation>();
+
+  // Projections (ADR 0022)
+  public DbSet<SessionRow> Sessions => Set<SessionRow>();
+  public DbSet<TurnRow> Turns => Set<TurnRow>();
+  public DbSet<StepRow> Steps => Set<StepRow>();
+  public DbSet<ModelResponseRow> ModelResponses => Set<ModelResponseRow>();
+  public DbSet<ProjectionStateRow> ProjectionStates => Set<ProjectionStateRow>();
 
   protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder) =>
     configurationBuilder.Conventions.Add(_ => new AuditTimestampsConvention());

@@ -37,6 +37,9 @@ public sealed class TranscriptLineConfiguration : IEntityTypeConfiguration<Trans
     // The raw transcripts list, newest first: ORDER BY received_at DESC, byte_offset DESC, id DESC (ADR 0020).
     builder.HasIndex(l => new { l.ReceivedAt, l.ByteOffset, l.Id });
     builder.HasIndex(l => l.ApiKeyId);
+    // Projections find new lines by updated_at (docs/architecture.md, incremental processing).
+    builder.Property<DateTimeOffset>(AppDbContext.UpdatedAt);
+    builder.HasIndex(AppDbContext.UpdatedAt);
   }
 }
 
