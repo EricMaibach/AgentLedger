@@ -113,7 +113,7 @@ Every color, font, size and spacing value comes from CSS variables defined once 
 
 - **Render mode:** static server-side rendering (the default). A component may use `@rendermode InteractiveServer` only when it needs live interaction a link or form can't provide; note why in a comment. So far that's the work page.
 - **Interactive pages** ([ADR 0023](adr/0023-interactive-work-pages.md)):
-  - Prerendered, so the first response is complete HTML. Data loaded while prerendering is handed over with `[PersistentState]` rather than loaded again.
+  - Prerendered, so the first response is complete HTML. Data loaded while prerendering is handed over with `[PersistentState]` rather than loaded again. The browser sends that data back when it connects, so the connection accepts messages up to 4 MB (`AddHubOptions` in `Program.cs`): at SignalR's default 32 KB, long sessions never became interactive and every click was a full page load.
   - Selections are real links (`data-work-nav`); the page's script turns a plain click into a history update plus a call to the page, so the page never re-renders on the server for a click. Modified clicks open new tabs as usual.
   - The connection rechecks the security stamp (`CircuitSessionRevalidation`); when it fails, the page goes to the login page.
   - `blazor.web.js` starts with `ssr: { disableDomPreservation: true }`: enhanced navigation and form handling stay off, so static pages behave exactly as plain HTML pages.

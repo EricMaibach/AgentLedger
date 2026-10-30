@@ -15,6 +15,7 @@
 }
 
 .active {
+  margin-left: var(--space-2);
   font-size: var(--text-sm);
   font-weight: normal;
   color: var(--color-accent);

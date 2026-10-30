@@ -17,7 +17,11 @@ builder.Services.AddServiceConfigs(startupLogger, builder);
 // The web UI: Blazor components rendered on the server, static by default (ADR 0015); the work pages are interactive
 // over a server connection (ADR 0023).
 builder.Services.AddRazorComponents()
-                .AddInteractiveServerComponents();
+                .AddInteractiveServerComponents()
+                // When an interactive page connects, the browser sends back the data it was prerendered with
+                // ([PersistentState], ADR 0023). SignalR's default 32 KB limit refused it for long sessions, so the page
+                // never became interactive; a few hundred KB is typical. Only signed-in users can connect.
+                .AddHubOptions(options => options.MaximumReceiveMessageSize = 4 * 1024 * 1024);
 builder.Services.AddLedgerAuthentication(builder.Configuration);
 builder.Services.AddRequestDecompression(); // gzipped transcript batches (ADR 0020)
 
