@@ -160,6 +160,11 @@ namespace AgentLedger.Infrastructure.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("issued_at");
 
+                    b.Property<string>("LastClientVersion")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("last_client_version");
+
                     b.Property<DateTimeOffset?>("LastUsedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("last_used_at");
@@ -207,6 +212,63 @@ namespace AgentLedger.Infrastructure.Data.Migrations
                         .HasDatabaseName("ix_api_keys_revoked_by");
 
                     b.ToTable("api_keys", (string)null);
+                });
+
+            modelBuilder.Entity("AgentLedger.Core.EnrollmentAggregate.EnrollmentCode", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("ApiKeyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("api_key_id");
+
+                    b.Property<string>("CodeHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("code_hash");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<Guid>("OwnerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("owner_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<DateTimeOffset?>("UsedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("used_at");
+
+                    b.Property<string>("UsedByHost")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("used_by_host");
+
+                    b.HasKey("Id")
+                        .HasName("pk_enrollment_codes");
+
+                    b.HasIndex("ApiKeyId")
+                        .HasDatabaseName("ix_enrollment_codes_api_key_id");
+
+                    b.HasIndex("CodeHash")
+                        .IsUnique()
+                        .HasDatabaseName("ix_enrollment_codes_code_hash");
+
+                    b.HasIndex("OwnerId")
+                        .HasDatabaseName("ix_enrollment_codes_owner_id");
+
+                    b.ToTable("enrollment_codes", (string)null);
                 });
 
             modelBuilder.Entity("AgentLedger.Core.GitAggregate.GitCommit", b =>
@@ -956,6 +1018,22 @@ namespace AgentLedger.Infrastructure.Data.Migrations
                         .HasForeignKey("RevokedBy")
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_api_keys_users_revoked_by");
+                });
+
+            modelBuilder.Entity("AgentLedger.Core.EnrollmentAggregate.EnrollmentCode", b =>
+                {
+                    b.HasOne("AgentLedger.Core.ApiKeyAggregate.ApiKey", null)
+                        .WithMany()
+                        .HasForeignKey("ApiKeyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_enrollment_codes_api_keys_api_key_id");
+
+                    b.HasOne("AgentLedger.Core.UserAggregate.User", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_enrollment_codes_users_owner_id");
                 });
 
             modelBuilder.Entity("AgentLedger.Core.GitAggregate.GitCommit", b =>

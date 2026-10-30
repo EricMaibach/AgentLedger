@@ -130,3 +130,45 @@ public sealed class StatusReportRender
     report.ShouldContain("something broke");
   }
 }
+
+// `status` compares the CLI's version with the ledger's (ADR 0024).
+public sealed class StatusReportRenderVersions
+{
+  private static CliSettings Settings(bool autoUpdate = true) => new(
+    Url: new Setting<Uri>(new Uri("http://api.test:5000"), "user"),
+    ApiKey: new Setting<string?>("agl_ingest_x", "user"),
+    Timeout: new Setting<TimeSpan>(TimeSpan.FromSeconds(1), "default"),
+    SpoolDirectory: new Setting<string>("/spool", "default"),
+    Enabled: new Setting<bool>(true, "default"),
+    Warnings: [])
+  { AutoUpdate = new Setting<bool>(autoUpdate, "default") };
+
+  private static string Render(string? ledgerVersion, bool autoUpdate = true, bool installed = true) =>
+    StatusReport.Render(Settings(autoUpdate), new ApiCheck(true, "reachable (5 ms)"), null, new SpoolSize(0, 0), new SpoolSize(0, 0), 0,
+      new SpoolSize(0, 0), 0, "/log", [], ["user"], new VersionCheck(ledgerVersion, installed));
+
+  [Fact]
+  public void SaysWhenTheVersionsMatch()
+  {
+    Render(CliVersion.Release(CliVersion.Current) + "+build").ShouldContain("same as the ledger");
+  }
+
+  [Fact]
+  public void SaysAnUpdateIsComing()
+  {
+    Render("99.0.0").ShouldContain("updates itself to 99.0.0");
+  }
+
+  [Fact]
+  public void SaysWhyItWillNotUpdate()
+  {
+    Render("99.0.0", autoUpdate: false).ShouldContain("auto-update is off");
+    Render("99.0.0", installed: false).ShouldContain("not the installed binary");
+  }
+
+  [Fact]
+  public void ShowsTheCliVersionWhenTheLedgersIsUnknown()
+  {
+    Render(null).ShouldContain(CliVersion.Release(CliVersion.Current));
+  }
+}

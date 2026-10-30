@@ -7,6 +7,7 @@ namespace AgentLedger.Core.ApiKeyAggregate;
 public sealed class ApiKey : EntityBase<ApiKey, ApiKeyId>, IAggregateRoot
 {
   public const int MaxNameLength = 100;
+  public const int MaxClientVersionLength = 64;
 
   // "Last used" only needs to answer "is this key still in use?", so it's written at most this often.
   public static readonly TimeSpan LastUsedPrecision = TimeSpan.FromHours(1);
@@ -18,6 +19,9 @@ public sealed class ApiKey : EntityBase<ApiKey, ApiKeyId>, IAggregateRoot
   public DateTimeOffset IssuedAt { get; private set; }
   public DateTimeOffset? ExpiresAt { get; private set; }
   public DateTimeOffset? LastUsedAt { get; private set; }
+
+  // The CLI version last seen with this key (ADR 0024), for the machines page. Null for keys only scripts use.
+  public string? LastClientVersion { get; private set; }
   public DateTimeOffset? RevokedAt { get; private set; }
   public UserId? RevokedBy { get; private set; }
 
@@ -56,15 +60,20 @@ public sealed class ApiKey : EntityBase<ApiKey, ApiKeyId>, IAggregateRoot
     RevokedAt = Guard.Against.Default(now);
   }
 
-  // Returns whether "last used" changed, so callers only save when it did.
-  public bool RecordUse(DateTimeOffset now)
+  // Returns whether anything changed, so callers only save when it did. A new client version is recorded at once;
+  // a request without one keeps the last.
+  public bool RecordUse(DateTimeOffset now, string? clientVersion = null)
   {
-    if (LastUsedAt is { } last && now - last < LastUsedPrecision)
+    var version = clientVersion is null ? null
+      : clientVersion.Length > MaxClientVersionLength ? clientVersion[..MaxClientVersionLength] : clientVersion;
+    var newVersion = version is not null && version != LastClientVersion;
+    if (!newVersion && LastUsedAt is { } last && now - last < LastUsedPrecision)
     {
       return false;
     }
 
     LastUsedAt = now;
+    LastClientVersion = version ?? LastClientVersion;
     return true;
   }
 

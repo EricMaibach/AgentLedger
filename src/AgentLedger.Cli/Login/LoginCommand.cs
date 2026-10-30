@@ -1,6 +1,7 @@
 ﻿using System.CommandLine;
 using System.Text;
 using AgentLedger.Cli.Configuration;
+using AgentLedger.Cli.Sending;
 
 namespace AgentLedger.Cli.Login;
 
@@ -16,7 +17,7 @@ internal static class LoginCommand
     {
       var settings = new SettingsLoader(environment).Load(environment.CurrentDirectory);
       var apiKey = parseResult.GetValue(key) ?? await ReadKeyAsync(stdin, stdout);
-      using var http = new HttpClient { Timeout = settings.Timeout.Value + TimeSpan.FromSeconds(4) }; // a person is waiting, not a hook
+      using var http = CliHttp.Create(settings.Timeout.Value + TimeSpan.FromSeconds(4)); // a person is waiting, not a hook
       return await LoginRunner.RunAsync(environment, http, settings.Url.Value, apiKey, stdout);
     });
 

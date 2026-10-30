@@ -95,9 +95,13 @@ public sealed partial class ApiKeyPageTests(CustomWebApplicationFactory<Program>
   [Fact]
   public async Task TheNavigationLeadsToSettings()
   {
+    // The menu links to /settings (so it stays highlighted on every Settings page), which opens Machines (ADR 0024);
+    // the Settings pages link to each other.
     var browser = await factory.CreateSignedInBrowserAsync();
 
-    (await (await browser.GetAsync("/raw/events")).Content.ReadAsStringAsync()).ShouldContain($"href=\"{Page}\"");
+    (await (await browser.GetAsync("/raw/events")).Content.ReadAsStringAsync()).ShouldContain("href=\"/settings\"");
+    (await browser.GetAsync("/settings")).RedirectTarget().ShouldBe("/settings/machines");
+    (await (await browser.GetAsync(Page)).Content.ReadAsStringAsync()).ShouldContain("href=\"/settings/machines\"");
   }
 
   [Fact]

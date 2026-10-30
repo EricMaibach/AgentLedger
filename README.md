@@ -14,70 +14,30 @@ AgentLedger hooks into coding agents (Claude Code, Codex, GitHub Copilot, Snowfl
 agent hook ──stdin──► agentledger CLI ──HTTP──► API ──► PostgreSQL
 ```
 
-- Agents run a small CLI from their hooks. It wraps each payload in an envelope, sends it to the API, and never blocks or breaks the agent.
-- The API appends every event to an **append-only ledger of raw events**. Structured views (sessions, turns, tool calls, cost) are projections that can be rebuilt from the raw history.
-- Agent-specific formats are handled by per-agent adapters, so the core model stays agent-neutral.
+- Agents run a small CLI from their hooks. It's a single Native AOT binary with no .NET runtime needed, and a hook run takes a few milliseconds.
 
-## Architecture
-
-A .NET 10 solution using Clean Architecture and Domain-Driven Design, based on the [Ardalis Clean Architecture template](https://github.com/ardalis/CleanArchitecture).
-
-| Project | Role |
-|---|---|
-| `AgentLedger.Core` | Domain model: aggregates, value objects, domain rules |
-| `AgentLedger.UseCases` | Application commands and queries (Mediator) |
-| `AgentLedger.Infrastructure` | EF Core + Npgsql persistence |
-| `AgentLedger.Web` | HTTP API (FastEndpoints) |
-| `AgentLedger.ServiceDefaults` | OpenTelemetry, health checks |
-
-More detail:
-- [Architecture and engineering approach](docs/architecture.md)
-- [Architecture Decision Records](docs/adr/)
-- [Agent hook research](docs/research/agent-hook-capabilities.md)
-
-## Getting started
-
-Requirements: Docker and VS Code with the Dev Containers extension.
-
-1. Open the repository in VS Code and choose **Reopen in Container**. This starts a .NET 10 SDK container plus PostgreSQL 18. `psql` works with no arguments.
-2. Build and test:
-   ```bash
-   dotnet tool restore  # local tools (dotnet-ef)
-   dotnet build
-   dotnet test        # functional tests start a throwaway Postgres container via Testcontainers
-   ```
-3. Run the API:
-   ```bash
-   dotnet run --project src/AgentLedger.Web --launch-profile http
-   curl http://localhost:57678/status
-   ```
-   In Development, migrations are applied on startup. Open `http://localhost:57678/` in a browser: on a database with no users it asks you to create the admin account (within 10 minutes of starting the app). After signing in, the web UI is at `/raw/events`, API keys are under Settings, and API docs are at `/scalar`.
-4. The dev container sends its own agent activity to the stable ledger (dogfooding). Give it a key by setting `AGENTLEDGER_API_KEY` on the machine running VS Code before opening the container (`devcontainer.json` passes it in), or run `agentledger login` inside the container (lost on rebuild).
-
-## Running a ledger
-
-`deploy/compose.yml` runs the released image with its own Postgres, for example as a Portainer stack. Its comments list the variables, the first-run setup, and how to reset a forgotten password. By default the ledger is reachable only from the machine it runs on; see [ADR 0018](docs/adr/0018-password-login.md) before exposing it on a network. After creating the admin, create an ingest key under Settings → API keys for each machine that sends events.
-
-## Recording agent activity: the `agentledger` CLI
-
-Agents run a small CLI from their hooks. It's published as a single Native AOT binary with no .NET runtime needed, and a hook run takes a few milliseconds.
+**Connecting a machine** ([ADR 0024](docs/adr/0024-connecting-machines.md)): in the web UI, open Settings → Machines, choose the address the machine reaches the ledger at, and press "Connect a machine". Run the command it shows on that machine (a computer, a server or a dev container); the one-time code in it works once, for ten minutes:
 
 ```bash
-dotnet publish src/AgentLedger.Cli -c Release -r linux-x64 -o ~/.local/bin   # a folder on your PATH
-agentledger install claude-code          # hooks for every Claude Code event, in all your projects
-agentledger login                        # store your ingest key (create it in the web UI under Settings → API keys)
-agentledger status                       # configuration, API reachability, key state, waiting events, recent log
+curl -fsSL http://<ledger>/install.sh | sh -s -- --code K7PX-4QHM                    # Linux and macOS
+$env:AGENTLEDGER_CODE='K7PX-4QHM'; irm http://<ledger>/install.ps1 | iex             # Windows PowerShell
 ```
 
-- **An ingest key is required** to send events ([ADR 0019](docs/adr/0019-api-keys.md)). Keys are personal: create your own in the web UI. `login` checks it with the ledger and saves it in your user config file; `AGENTLEDGER_API_KEY` works too. Without a valid key, events wait in the spool.
+It downloads the CLI from the ledger (checksum-checked) into `~/.local/bin` (Windows: `%LOCALAPPDATA%\AgentLedger\bin`), saves the ledger's address, exchanges the code for the machine's own ingest key (owned by you, listed under Settings → Machines, where "Disconnect" revokes it), installs the Claude Code hooks and shows `agentledger status`. No administrator rights needed.
+
+- **Updates are automatic:** the installed CLI follows the ledger's version, updating itself within about an hour of its next hook after you update the ledger. To control updates yourself, add `"autoUpdate": false` to `~/.config/agentledger/config.json`; running the install command again (without a code) updates it.
+- **Dev containers:** a rebuild wipes the home folder. Run the install command without a code in `postCreateCommand`, and keep `~/.config/agentledger` in a named volume so the machine's key survives rebuilds; otherwise connect it again with a new code.
+- **Building from source** (as this repository's own dev container does): `dotnet publish src/AgentLedger.Cli -c Release -r linux-x64 -o ~/.local/bin`, then `agentledger setup --url http://<ledger> --code <code>` (or `agentledger install claude-code` and `agentledger login` with a key from Settings → API keys). A CLI built from source never updates itself.
+
+- **An ingest key is required** to send events ([ADR 0019](docs/adr/0019-api-keys.md)). Keys are personal: connecting a machine creates one for you; `login` stores one you created under Settings → API keys; `AGENTLEDGER_API_KEY` works too. Without a valid key, events wait in the spool.
 - **Transcripts too** ([ADR 0020](docs/adr/0020-transcripts.md)): each hook also sends the new lines of the session's transcript (and subagents'), read where it stopped last time. They wait in the spool like events, and `status` shows how many batches are waiting. Claude Code leaves thinking text out of its transcripts by default. To record it, set `"showThinkingSummaries": true` in `~/.claude/settings.json` and restart Claude Code (verified 2026-10-27), and pass `--thinking-display summarized` for headless runs (`claude -p`). Even then it's a summary of the model's reasoning, not the full reasoning.
 - **Git context** ([ADR 0021](docs/adr/0021-git-context.md)): each event records the checked-out commit, and when it changes, the new commits (message, changed files) are sent too, read with `git log`; so are tags as they're created, moved or deleted. Nothing to set up; history from before the CLI first saw a repository isn't sent.
 - **`hook <agent>`** is what the installed hooks call. It's silent and always exits 0, so it never disrupts the agent. If the API is unavailable, events wait in a local spool and are sent later, or right away with `agentledger flush`.
-- **Pointing at another API:** set `AGENTLEDGER_URL`, or add `{ "url": "..." }` to `.agentledger.json` in a project.
+- **Pointing at another ledger:** run `agentledger setup --url …`, set `AGENTLEDGER_URL`, or add `{ "url": "..." }` to `.agentledger.json` in a project (the environment variable wins, then the project file, then the user config).
 - **Opting a project out:** add `{ "enabled": false }` to that project's `.agentledger.json`.
 - **Removing it:** run `agentledger uninstall claude-code` before deleting the binary.
 
-Details: [ADR 0012](docs/adr/0012-cli-design.md), [ADR 0013](docs/adr/0013-hook-installation-and-opt-out.md).
+Details: [ADR 0012](docs/adr/0012-cli-design.md), [ADR 0013](docs/adr/0013-hook-installation-and-opt-out.md), [ADR 0024](docs/adr/0024-connecting-machines.md).
 
 ## Contributing
 

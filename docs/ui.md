@@ -25,7 +25,7 @@ A header with the product name and the ledger's version (from `/status`, e.g. `0
 | **Raw events** | `/raw/events`, `/raw/events/{eventId}` | 2 (v1) |
 | **Raw transcripts** | `/raw/transcripts`, `/raw/transcripts/{lineId}` | 3 |
 | *(future)* Ingestion health | arrivals, duplicate rate, unknown event types | later |
-| **Settings** | `/settings/api-keys`; *(future)* users | 2 |
+| **Settings** | `/settings` (opens Machines), `/settings/machines`, `/settings/api-keys`; *(future)* users | 2 |
 
 "Work", "Raw events", "Raw transcripts" and "Settings" exist today. The home page `/` and the product name go to "Work".
 
@@ -48,6 +48,10 @@ Built **exactly like Raw events** ([ADR 0020](adr/0020-transcripts.md)): the sam
 - Raw means raw: the line type is shown as written; reading meaning into lines (conversations, cost) is Phase 4.
 
 ### Settings pages
+Each Settings page starts with a small **SettingsNav** (Machines, API keys); the menu's Settings link goes to `/settings`, so it stays highlighted on all of them.
+
+`/settings/machines` ([ADR 0024](adr/0024-connecting-machines.md)) connects machines: choose the address the machine reaches the ledger at (the one you browse from, the dev container one, or another), press "Connect a machine", and the response shows the install commands (Linux and macOS, Windows, and "read the script first") with a one-time code, **once**, in a status panel with **CopyButtons**. Below, the connected machines in a **DataTable** (machine, owner, connected, last used, CLI version with "updates itself to …" when it differs from the ledger, status) with a "Disconnect" button per active machine (a POST form named `disconnect-<keyId>`, revoking its key).
+
 `/settings/api-keys` ([ADR 0019](adr/0019-api-keys.md)) lists keys in a **DataTable** (members their own, admins everyone's), with a create form above it. A new key is shown **once**, in a status panel with a **CopyButton**; it never appears again. Each active key's row has a "Revoke" button: a POST form per row, with its own form name (`revoke-<keyId>`). Statuses come from `ApiKeyStatus` (Active, "Expires in N days" within 14 days, Expired, "Revoked by …").
 
 ### Account pages

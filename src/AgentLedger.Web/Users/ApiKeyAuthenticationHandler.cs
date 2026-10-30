@@ -27,7 +27,8 @@ internal sealed class ApiKeyAuthenticationHandler(
       return AuthenticateResult.NoResult();
     }
 
-    var result = await mediator.Send(new AuthenticateApiKeyCommand(header[BearerPrefix.Length..].Trim()), Context.RequestAborted);
+    var result = await mediator.Send(new AuthenticateApiKeyCommand(header[BearerPrefix.Length..].Trim(),
+      CliUserAgent.VersionOf(Request.Headers.UserAgent.ToString())), Context.RequestAborted);
     if (!result.IsSuccess)
     {
       return AuthenticateResult.Fail("Invalid API key.");

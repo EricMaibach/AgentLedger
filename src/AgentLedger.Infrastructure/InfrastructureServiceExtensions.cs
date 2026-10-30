@@ -4,6 +4,7 @@ using AgentLedger.Infrastructure.Data.Stores;
 using AgentLedger.Infrastructure.Users;
 using AgentLedger.UseCases.AgentEventReceipts.ListRawEvents;
 using AgentLedger.UseCases.ApiKeys;
+using AgentLedger.UseCases.Enrollment;
 using AgentLedger.UseCases.Git;
 using AgentLedger.UseCases.Projections;
 using AgentLedger.UseCases.Transcripts;
@@ -44,6 +45,8 @@ public static class InfrastructureServiceExtensions
     services.AddScoped<IApiKeyQueryService, ApiKeyQueryService>();
     services.AddScoped<ITranscriptStore, TranscriptStore>();
     services.AddScoped<IGitObservationStore, GitObservationStore>();
+    services.AddScoped<IEnrollmentStore, EnrollmentStore>();
+    services.AddScoped<IEnrollmentQueryService, EnrollmentQueryService>();
     services.AddScoped<ITranscriptQueryService, TranscriptQueryService>();
     services.AddScoped<IProjectionSourceQuery, ProjectionSourceQuery>();
     services.AddScoped<IProjectionStore, ProjectionStore>();

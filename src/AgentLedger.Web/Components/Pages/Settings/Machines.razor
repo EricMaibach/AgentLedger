@@ -1,0 +1,186 @@
+@page "/settings/machines"
+@inject IMediator Mediator
+@inject NavigationManager Navigation
+@inject TimeProvider Clock
+
+@* Connecting machines (ADR 0024): a one-time code in a one-line install command (shown once), and the machines
+   connected so far, each disconnected by revoking its key. Members see their own; admins see everyone's. *@
+
+<PageTitle>Machines · AgentLedger</PageTitle>
+
+<SettingsNav />
+<h1>Machines</h1>
+<p class="intro">
+  A connected machine records its AI agents' activity here. Connect each computer, server or dev container that runs an
+  agent: the command installs the <code>agentledger</code> CLI and its hooks, and gives the machine its own ingest key.
+</p>
+
+@if (Created is { } created)
+{
+  <section class="commands" role="status" aria-labelledby="commands-heading">
+    <h2 id="commands-heading">Run this on the machine</h2>
+    <p>The code works once, until <Timestamp Value="created.ExpiresAt" />. It won't be shown again.</p>
+    <h3>Linux or macOS</h3>
+    <p class="command"><code>@MachineSetup.UnixCommand(created.Address, created.Code)</code>
+      <CopyButton Text="@MachineSetup.UnixCommand(created.Address, created.Code)" Label="Copy command for Linux or macOS" /></p>
+    <h3>Windows (PowerShell)</h3>
+    <p class="command"><code>@MachineSetup.WindowsCommand(created.Address, created.Code)</code>
+      <CopyButton Text="@MachineSetup.WindowsCommand(created.Address, created.Code)" Label="Copy command for Windows" /></p>
+    <details>
+      <summary>Prefer to read the script first?</summary>
+      <pre><code>@string.Join("\n", MachineSetup.ReadFirstCommands(created.Address, created.Code))</code></pre>
+    </details>
+  </section>
+}
+
+<section class="connect" aria-labelledby="connect-heading">
+  <h2 id="connect-heading">Connect a machine</h2>
+  @if (Errors.Count > 0)
+  {
+    <div class="alert" role="alert">
+      @foreach (var error in Errors)
+      {
+        <p>@error</p>
+      }
+    </div>
+  }
+  <EditForm Model="Connect" FormName="connect" OnSubmit="ConnectAsync">
+    <fieldset>
+      <legend>The address the machine reaches this ledger at</legend>
+      <InputRadioGroup @bind-Value="Connect.Address">
+        @foreach (var (choice, index) in Choices.Select((c, i) => (c, i)))
+        {
+          <label class="choice"><InputRadio Value="@index.ToString(System.Globalization.CultureInfo.InvariantCulture)" />
+            @choice.Label: <code>@choice.Address</code></label>
+        }
+        <label class="choice"><InputRadio Value="@("other")" /> Another address:
+          <InputText @bind-Value="Connect.OtherAddress" placeholder="http://ledger.example.com:58090" aria-label="Another address" /></label>
+      </InputRadioGroup>
+    </fieldset>
+    <button type="submit">Connect a machine</button>
+  </EditForm>
+</section>
+
+<section aria-labelledby="machines-heading">
+  <h2 id="machines-heading">Connected machines</h2>
+  @if (List.Count == 0)
+  {
+    <EmptyState Message="No machines connected yet." />
+  }
+  else
+  {
+    <DataTable Caption="Connected machines, most recently connected first">
+      <Header>
+        <th scope="col">Machine</th>
+        <th scope="col">Owner</th>
+        <th scope="col">Connected (UTC)</th>
+        <th scope="col">Last used (UTC)</th>
+        <th scope="col">CLI version</th>
+        <th scope="col">Status</th>
+        <th scope="col"><span class="visually-hidden">Actions</span></th>
+      </Header>
+      <ChildContent>
+        @foreach (var machine in List)
+        {
+          var active = machine.RevokedAt is null && !(machine.ExpiresAt <= Now);
+          <tr>
+            <td>@machine.Host</td>
+            <td>@machine.Owner</td>
+            <td><Timestamp Value="machine.ConnectedAt" /></td>
+            <td>
+              @if (machine.LastUsedAt is { } lastUsed)
+              {
+                <Timestamp Value="lastUsed" />
+              }
+              else
+              {
+                <span class="muted">Never</span>
+              }
+            </td>
+            <td>
+              <code title="@machine.ClientVersion">@(machine.ClientVersion is { } version ? MachineSetup.Release(version) : "—")</code>
+              @if (active && MachineSetup.NeedsUpdate(machine.ClientVersion, BuildInfo.Version))
+              {
+                <span class="muted"> (updates itself to @MachineSetup.Release(BuildInfo.Version))</span>
+              }
+            </td>
+            <td class="@(active ? "" : "muted")">@(machine.RevokedAt is not null ? "Disconnected" : active ? "Connected" : "Key expired")</td>
+            <td>
+              @if (active)
+              {
+                <form method="post" @formname="@($"disconnect-{machine.KeyId}")" @onsubmit="() => DisconnectAsync(machine.KeyId)">
+                  <AntiforgeryToken />
+                  <button type="submit" aria-label="@($"Disconnect {machine.Host}")">Disconnect</button>
+                </form>
+              }
+            </td>
+          </tr>
+        }
+      </ChildContent>
+    </DataTable>
+  }
+</section>
+
+@code {
+  [CascadingParameter] public HttpContext HttpContext { get; set; } = default!;
+
+  // Bound from a posted form, and null otherwise (so no initializer, BL0008); OnInitializedAsync fills it in.
+  [SupplyParameterFromForm(FormName = "connect")] private ConnectInput Connect { get; set; } = default!;
+
+  private IReadOnlyList<(string Label, string Address)> Choices { get; set; } = [];
+  private IReadOnlyList<UseCases.Enrollment.MachineListItem> List { get; set; } = [];
+  private List<string> Errors { get; } = [];
+  private CreatedCode? Created { get; set; }
+  private Guid ViewerId { get; set; }
+  private DateTimeOffset Now => Clock.GetUtcNow();
+
+  protected override async Task OnInitializedAsync()
+  {
+    Connect ??= new ConnectInput();
+    Choices = MachineSetup.AddressChoices(new Uri(Navigation.Uri));
+    SessionCookie.TryRead(HttpContext.User, out var viewerId, out _);
+    ViewerId = viewerId;
+    await LoadAsync();
+  }
+
+  private async Task ConnectAsync()
+  {
+    var address = Connect.Address == "other"
+      ? MachineSetup.NormalizeAddress(Connect.OtherAddress)
+      : int.TryParse(Connect.Address, out var index) && index >= 0 && index < Choices.Count ? Choices[index].Address : null;
+    if (address is null)
+    {
+      Errors.Add("Enter the address as http://host:port or https://host, without a path.");
+      return;
+    }
+
+    var result = await Mediator.Send(new UseCases.Enrollment.CreateEnrollmentCode.CreateEnrollmentCodeCommand(ViewerId));
+    if (!result.IsSuccess)
+    {
+      Errors.AddRange(result.Errors);
+      return;
+    }
+
+    Created = new CreatedCode(result.Value.Code, result.Value.ExpiresAt, address);
+  }
+
+  private async Task DisconnectAsync(Guid keyId)
+  {
+    await Mediator.Send(new UseCases.ApiKeys.RevokeApiKey.RevokeApiKeyCommand(ViewerId, keyId));
+    await LoadAsync();
+  }
+
+  private async Task LoadAsync()
+  {
+    var result = await Mediator.Send(new UseCases.Enrollment.ListMachines.ListMachinesQuery(ViewerId));
+    List = result.IsSuccess ? result.Value : [];
+  }
+
+  private sealed record CreatedCode(string Code, DateTimeOffset ExpiresAt, string Address);
+
+  private sealed class ConnectInput
+  {
+    public string? Address { get; set; } = "0";
+    public string? OtherAddress { get; set; }
+  }
+}

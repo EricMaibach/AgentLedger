@@ -64,7 +64,8 @@ internal static class HookCommand
         return; // this project opted out: record nothing, not even in the spool (ADR 0013)
       }
 
-      using var http = new HttpClient { Timeout = settings.Timeout.Value };
+      var tracker = new LedgerVersionTracker();
+      using var http = CliHttp.Create(settings.Timeout.Value, tracker);
       var runner = new HookRunner(
         new EnvelopeBuilder(environment, clock),
         new EventSpool(settings.SpoolDirectory.Value, SpoolLimits.Default),
@@ -75,6 +76,19 @@ internal static class HookCommand
         projectDirectory: AgentProfile.For(agent).ResolveProjectDirectory(environment));
 
       await runner.RunAsync(agent, payload, cancellationToken);
+
+      // After the event is safe: follow the ledger's version (ADR 0024). Hooks run asynchronously, so the agent isn't
+      // waiting for a download.
+      try
+      {
+        using var download = CliHttp.Create(TimeSpan.FromMinutes(2));
+        await new Updating.SelfUpdater(environment, download, clock, log, Updating.SelfUpdater.RunSetupAsync)
+          .MaybeUpdateAsync(settings, tracker.LedgerVersion, cancellationToken);
+      }
+      catch (Exception ex)
+      {
+        log.Error($"hook {agent}: updating the CLI failed: {ex}");
+      }
     }
     catch (Exception ex)
     {

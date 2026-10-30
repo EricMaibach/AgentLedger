@@ -32,6 +32,7 @@ public sealed class ApiKeyConfiguration : IEntityTypeConfiguration<ApiKey>
     builder.Property(k => k.LastUsedAt);
     builder.Property(k => k.RevokedAt);
     builder.Property(k => k.RevokedBy).HasConversion<VogenEfCoreConverters.UserIdEfCoreValueConverter>(); // nullable
+    builder.Property(k => k.LastClientVersion).HasMaxLength(ApiKey.MaxClientVersionLength); // the CLI version last seen (ADR 0024)
     builder.HasOne<User>().WithMany().HasForeignKey(k => k.RevokedBy).OnDelete(DeleteBehavior.Restrict);
   }
 }

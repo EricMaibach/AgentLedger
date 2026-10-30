@@ -22,10 +22,11 @@ Each file records one significant decision: the context, what was decided, and t
 | [0016](0016-read-api-and-keyset-paging.md) | Read API: keyset paging; query service for read-model lists, Specification for aggregate lookups | Accepted |
 | [0017](0017-api-prefix-for-read-endpoints.md) | JSON read API under `/api`; pages own `/raw/events…`; ingest stays at `/events` | Accepted |
 | [0018](0018-password-login.md) | Password login: own User aggregate, deny by default, time-limited first-run setup page, local-only port by default | Accepted |
-| [0019](0019-api-keys.md) | API keys: personal, one scope each (ingest/read), SHA-256 hashed; ingest always requires one; receipts record the sending key | Accepted |
+| [0019](0019-api-keys.md) | API keys: personal, one scope each (ingest/read), SHA-256 hashed; ingest always requires one; receipts record the sending key | Accepted (keys also created by enrollment: [0024](0024-connecting-machines.md)) |
 | [0020](0020-transcripts.md) | Transcripts: own raw tables (lines, files), each line stored once by content-hashed ID, read by the CLI on every hook, sent in gzipped batches | Accepted |
 | [0021](0021-git-context.md) | Git context: `HEAD` on every event; commits and tags observed from the local repository when they change; no git hooks or host APIs | Accepted |
 | [0022](0022-projections.md) | Projections: an agent-neutral activity hierarchy (session, turn, steps) merged from hooks and transcripts, grouped into units of work by lens (git commit attribution with reasons), tokens per model without cost, stable IDs and lineage, rebuilt a session at a time by a background worker | Accepted |
 | [0023](0023-interactive-work-pages.md) | Work pages: Interactive Server (amends 0015), three resizable and collapsible panes, selection in the URL | Accepted |
+| [0024](0024-connecting-machines.md) | Connecting machines: one install command with a one-time enrollment code (creates the machine's ingest key), the CLI and installer served by the ledger, CLIs self-update to the ledger's version | Accepted |
 
 New ADRs: copy the structure of an existing one (Status, Context, Decision, Consequences) and use the next number.

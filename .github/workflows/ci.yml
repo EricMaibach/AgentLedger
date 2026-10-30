@@ -60,20 +60,37 @@ jobs:
           # Events are the .json files at the top of the spool; git and transcript batches have folders of their own.
           test "$(find "$RUNNER_TEMP/spool" -maxdepth 1 -name '*.json' | wc -l)" -eq 1 || { echo "event was not spooled"; ls -R "$RUNNER_TEMP/spool"; exit 1; }
 
+      # The image job checks this binary ends up where the ledger serves it from (ADR 0024).
+      # Not cli-linux-x64: the release runs these jobs in its own run, where its CLI matrix uses the cli-* names.
+      - uses: actions/upload-artifact@v5
+        with:
+          name: ci-cli-linux-x64
+          path: artifacts/cli/agentledger
+          if-no-files-found: error
+
   # Builds the API image as the release does and checks it holds the scripts the interactive pages need (ADR 0023):
   # the Dockerfile restores from project files alone, and once shipped an image without blazor.web.js, which left the
   # work page as plain links.
   image:
+    needs: cli-native
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
 
+      # As the release does for every platform (ADR 0024); here the Linux x64 CLI from the job above.
+      - uses: actions/download-artifact@v6
+        with:
+          name: ci-cli-linux-x64
+          path: src/AgentLedger.Web/cli-binaries/linux-x64
+
       - name: Build the image
         run: docker build -t agentledger-api:ci .
 
-      - name: Check the image's web assets
+      - name: Check the image's web assets and CLI
         run: |
           for route in _framework/blazor.web.js Components/Pages/Work/WorkPage.razor.js; do
             docker run --rm --entrypoint grep agentledger-api:ci -q "\"Route\":\"$route\"" /app/AgentLedger.Web.staticwebassets.endpoints.json \
               || { echo "missing from the image: $route"; exit 1; }
           done
+          docker run --rm --entrypoint sh agentledger-api:ci -c "test -s /app/cli-binaries/linux-x64/agentledger" \
+            || { echo "missing from the image: the linux-x64 CLI"; exit 1; }

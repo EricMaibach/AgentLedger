@@ -26,7 +26,7 @@ internal static class FlushCommand
         return 0;
       }
 
-      using var http = new HttpClient { Timeout = settings.Timeout.Value };
+      using var http = CliHttp.Create(settings.Timeout.Value);
       var log = new FileLog(CliPaths.LogFile(environment), TimeProvider.System);
       var drainer = new SpoolDrainer(spool, new HttpEventSender(http, settings.Url.Value, settings.ApiKey.Value), log);
 

@@ -134,6 +134,60 @@ public sealed class ApiKeyRecordUse
   }
 }
 
+// The CLI version a key's machine runs (ADR 0024), recorded with "last used": at once when it changes, so an update
+// shows on the machines page without waiting an hour.
+public sealed class ApiKeyRecordUseWithClientVersion
+{
+  [Fact]
+  public void RecordsTheVersion()
+  {
+    var key = new ApiKeyBuilder().Build();
+
+    key.RecordUse(ApiKeyBuilder.Now, "0.6.0").ShouldBeTrue();
+    key.LastClientVersion.ShouldBe("0.6.0");
+  }
+
+  [Fact]
+  public void RecordsANewVersionWithinTheHour()
+  {
+    var key = new ApiKeyBuilder().Build();
+    key.RecordUse(ApiKeyBuilder.Now, "0.6.0");
+
+    key.RecordUse(ApiKeyBuilder.Now.AddMinutes(5), "0.6.1").ShouldBeTrue();
+    (key.LastClientVersion, key.LastUsedAt).ShouldBe(("0.6.1", (DateTimeOffset?)ApiKeyBuilder.Now.AddMinutes(5)));
+  }
+
+  [Fact]
+  public void KeepsTheVersionWhenARequestHasNone()
+  {
+    // Scripts using a read key send no CLI version: that doesn't erase what the CLI reported.
+    var key = new ApiKeyBuilder().Build();
+    key.RecordUse(ApiKeyBuilder.Now, "0.6.0");
+
+    key.RecordUse(ApiKeyBuilder.Now.AddHours(2), null).ShouldBeTrue();
+    key.LastClientVersion.ShouldBe("0.6.0");
+  }
+
+  [Fact]
+  public void SkipsTheSameVersionWithinTheHour()
+  {
+    var key = new ApiKeyBuilder().Build();
+    key.RecordUse(ApiKeyBuilder.Now, "0.6.0");
+
+    key.RecordUse(ApiKeyBuilder.Now.AddMinutes(5), "0.6.0").ShouldBeFalse();
+  }
+
+  [Fact]
+  public void ShortensAnOverlongVersion()
+  {
+    var key = new ApiKeyBuilder().Build();
+
+    key.RecordUse(ApiKeyBuilder.Now, new string('9', 200));
+
+    key.LastClientVersion!.Length.ShouldBe(ApiKey.MaxClientVersionLength);
+  }
+}
+
 public sealed class ApiKeySecretHashOf
 {
   [Fact]

@@ -7,9 +7,22 @@ namespace AgentLedger.Cli.Status;
 
 internal sealed record ApiCheck(bool Reachable, string Detail);
 
+/// <summary>What the ledger said its version is (null when it didn't answer), and whether this is the installed binary.</summary>
+internal sealed record VersionCheck(string? LedgerVersion, bool Installed);
+
 /// <summary>The `status` output: everything needed to see why events might not be arriving.</summary>
 internal static class StatusReport
 {
+  // The CLI follows the ledger's version when it can (ADR 0024); this says whether it will.
+  private static string VersionNote(CliSettings settings, VersionCheck? version) => version?.LedgerVersion switch
+  {
+    null => "",
+    var ledger when CliVersion.Release(ledger) == CliVersion.Release(CliVersion.Current) => "same as the ledger",
+    var ledger when !settings.AutoUpdate.Value => $"the ledger is {CliVersion.Release(ledger)}; auto-update is off",
+    var ledger when !version.Installed => $"the ledger is {CliVersion.Release(ledger)}; not the installed binary, so it doesn't update itself",
+    var ledger => $"updates itself to {CliVersion.Release(ledger)} at its next hook",
+  };
+
   public static async Task<ApiCheck> CheckApiAsync(HttpClient http, Uri apiUrl)
   {
     var started = Stopwatch.GetTimestamp();
@@ -29,11 +42,12 @@ internal static class StatusReport
 
   public static string Render(CliSettings settings, ApiCheck api, Login.ApiKeyCheck? key, SpoolSize spool, SpoolSize transcriptSpool, int trackedTranscripts,
     SpoolSize gitSpool, int watchedRepositories, string logFile, IReadOnlyList<string> recentLog,
-    IReadOnlyList<string> installedScopes)
+    IReadOnlyList<string> installedScopes, VersionCheck? version = null)
   {
     var report = new StringBuilder();
     report.AppendLine("AgentLedger status");
     report.AppendLine();
+    Row(report, "CLI", CliVersion.Release(CliVersion.Current), VersionNote(settings, version));
     Row(report, "API", settings.Url.Value.ToString(), settings.Url.Source);
     Row(report, "", api.Detail, "");
     Row(report, "API key", settings.ApiKey.Value is null ? "(none)" : "(set)", settings.ApiKey.Source); // never the key itself

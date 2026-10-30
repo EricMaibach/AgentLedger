@@ -1,9 +1,11 @@
 ﻿using System.Net;
+using System.Net.Http.Json;
 using AgentLedger.Web.Users;
 
 namespace AgentLedger.FunctionalTests.Authentication;
 
-// At most 10 login attempts a minute per IP address (ADR 0018). Its own class: the limit is per app instance.
+// At most 10 login attempts a minute per IP address (ADR 0018), and separately 10 enrollment attempts (ADR 0024).
+// Its own class: the limit is per app instance.
 public sealed class LoginRateLimitTests : IClassFixture<CustomWebApplicationFactory<Program>>
 {
   private readonly CustomWebApplicationFactory<Program> _factory;
@@ -28,5 +30,20 @@ public sealed class LoginRateLimitTests : IClassFixture<CustomWebApplicationFact
 
     (await browser.SignInAsync("guess10", "wrong password, quite long")).StatusCode.ShouldBe(HttpStatusCode.TooManyRequests);
     (await browser.GetAsync("/login")).StatusCode.ShouldBe(HttpStatusCode.OK); // only attempts are limited, not the page
+  }
+
+  [Fact]
+  public async Task RefusesTheEleventhEnrollmentAttemptInAMinute()
+  {
+    // Guessing codes is as limited as guessing passwords.
+    var client = _factory.CreateClient();
+    for (var i = 0; i < 10; i++)
+    {
+      (await client.PostAsJsonAsync("/enroll", new { code = $"AAAA-AAA{i}", host = "guesser" })).StatusCode
+        .ShouldBe(HttpStatusCode.BadRequest);
+    }
+
+    (await client.PostAsJsonAsync("/enroll", new { code = "AAAA-AAAB", host = "guesser" })).StatusCode
+      .ShouldBe(HttpStatusCode.TooManyRequests);
   }
 }

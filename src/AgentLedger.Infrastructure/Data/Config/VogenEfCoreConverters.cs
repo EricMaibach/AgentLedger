@@ -1,5 +1,6 @@
 ﻿using AgentLedger.Core.AgentEventReceiptAggregate;
 using AgentLedger.Core.ApiKeyAggregate;
+using AgentLedger.Core.EnrollmentAggregate;
 using AgentLedger.Core.GitAggregate;
 using AgentLedger.Core.TranscriptAggregate;
 using AgentLedger.Core.UserAggregate;
@@ -22,4 +23,6 @@ namespace AgentLedger.Infrastructure.Data.Config;
 [EfCoreConverter<GitCommitId>]
 [EfCoreConverter<CommitHash>]
 [EfCoreConverter<GitTagObservationId>]
+[EfCoreConverter<EnrollmentCodeId>]
+[EfCoreConverter<EnrollmentCodeHash>]
 internal sealed partial class VogenEfCoreConverters;

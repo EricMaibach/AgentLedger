@@ -1,6 +1,6 @@
 # 0019. API keys: personal, scoped, hashed; ingest always requires one
 
-- **Status:** Accepted
+- **Status:** Accepted (amended by [ADR 0024](0024-connecting-machines.md): keys can also be created by exchanging a one-time enrollment code)
 - **Date:** 2026-10-23
 
 ## Context

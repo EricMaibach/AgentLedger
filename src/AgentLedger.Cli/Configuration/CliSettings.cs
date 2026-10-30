@@ -10,4 +10,8 @@ internal sealed record CliSettings(
   Setting<TimeSpan> Timeout,
   Setting<string> SpoolDirectory,
   Setting<bool> Enabled,
-  IReadOnlyList<string> Warnings);
+  IReadOnlyList<string> Warnings)
+{
+  /// <summary>Whether the installed CLI follows the ledger's version (ADR 0024).</summary>
+  public Setting<bool> AutoUpdate { get; init; } = new(true, "default");
+}

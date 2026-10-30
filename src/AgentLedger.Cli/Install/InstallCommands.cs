@@ -141,7 +141,7 @@ internal static class InstallCommands
     return false;
   }
 
-  private static string? FindOnPath(IHostEnvironment environment)
+  internal static string? FindOnPath(IHostEnvironment environment)
   {
     var names = OperatingSystem.IsWindows() ? new[] { BinaryName + ".exe" } : [BinaryName];
     return (environment.GetVariable("PATH") ?? string.Empty)
@@ -150,7 +150,7 @@ internal static class InstallCommands
       .FirstOrDefault(File.Exists);
   }
 
-  private static string Quote(string path) => path.Contains(' ') ? $"\"{path}\"" : path;
+  internal static string Quote(string path) => path.Contains(' ') ? $"\"{path}\"" : path;
 
   private static string Name(InstallScope scope) => scope.ToString().ToLowerInvariant();
 }

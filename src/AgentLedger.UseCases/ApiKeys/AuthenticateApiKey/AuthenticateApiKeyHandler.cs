@@ -20,7 +20,7 @@ public sealed class AuthenticateApiKeyHandler(IRepository<ApiKey> keys, IReadRep
       return Result.Unauthorized();
     }
 
-    if (key.RecordUse(now))
+    if (key.RecordUse(now, command.ClientVersion))
     {
       await keys.UpdateAsync(key, cancellationToken);
     }

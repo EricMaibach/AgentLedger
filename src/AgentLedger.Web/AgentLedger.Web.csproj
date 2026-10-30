@@ -12,6 +12,14 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- The installers the ledger serves, with its address filled in (ADR 0024). -->
+    <EmbeddedResource Include="Cli\install.sh" LogicalName="AgentLedger.Web.Cli.install.sh" />
+    <EmbeddedResource Include="Cli\install.ps1" LogicalName="AgentLedger.Web.Cli.install.ps1" />
+    <!-- The CLI binaries the ledger serves: the release workflow puts them here (git-ignored) before building the image. -->
+    <None Update="cli-binaries\**" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Ardalis.Result" />
     <PackageReference Include="Ardalis.Result.AspNetCore" />
     <PackageReference Include="Markdig" />

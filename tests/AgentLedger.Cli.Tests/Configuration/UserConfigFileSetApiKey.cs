@@ -57,3 +57,27 @@ public sealed class UserConfigFileSetApiKey : IDisposable
     File.GetUnixFileMode(UserConfigFile.PathFor(_env)).ShouldBe(UnixFileMode.UserRead | UnixFileMode.UserWrite);
   }
 }
+
+// `setup` saves the ledger's address in the user config file (ADR 0024), keeping everything else.
+public sealed class UserConfigFileSet : IDisposable
+{
+  private readonly TempDirectory _temp = new();
+  private readonly FakeHostEnvironment _env = new();
+
+  public UserConfigFileSet() => _env.UserConfigDirectory = _temp.Path;
+
+  public void Dispose() => _temp.Dispose();
+
+  [Fact]
+  public void SavesTheAddressNextToTheKey()
+  {
+    UserConfigFile.SetApiKey(_env, "agl_ingest_abc_def");
+
+    UserConfigFile.Set(_env, "url", "http://host.docker.internal:58090");
+
+    var settings = new SettingsLoader(_env).Load(_temp.Path);
+    settings.Url.Value.ShouldBe(new Uri("http://host.docker.internal:58090"));
+    settings.Url.Source.ShouldStartWith("user");
+    settings.ApiKey.Value.ShouldBe("agl_ingest_abc_def");
+  }
+}

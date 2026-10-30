@@ -9,7 +9,8 @@ public static class ServiceConfigs
   {
     services.AddInfrastructureServices(builder.Configuration, logger)
             .AddMediatorSourceGen(logger)
-            .AddProjections(builder.Configuration);
+            .AddProjections(builder.Configuration)
+            .AddSingleton<AgentLedger.Web.Cli.CliBinaries>();
 
     logger.LogInformation("{Project} services registered", "Mediator Source Generator");
 

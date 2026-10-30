@@ -1,4 +1,5 @@
 ﻿using AgentLedger.Infrastructure.Data;
+using AgentLedger.Web.Cli;
 using AgentLedger.Web.Users;
 using Scalar.AspNetCore;
 
@@ -17,6 +18,14 @@ public static class MiddlewareConfig
       app.UseDefaultExceptionHandler(); // from FastEndpoints
       app.UseHsts();
     }
+
+    // Every answer names the ledger's version: connected CLIs update themselves to it (ADR 0024). Not secret: /status
+    // shows it too.
+    app.Use((context, next) =>
+    {
+      context.Response.Headers["X-AgentLedger-Version"] = BuildInfo.Version;
+      return next(context);
+    });
 
     // Login (ADR 0018): limit login attempts, then authenticate and authorize every request (deny by default).
     // Requests the server finds bad while reading the body (e.g. a decompressed body over its limit: 413) carry
@@ -54,6 +63,8 @@ public static class MiddlewareConfig
           new AgentLedger.Web.Components.Formatting.RawTranscriptsQueryString(Session: session, File: file is null or "main" ? null : file))))
       .ExcludeFromDescription();
     app.MapGet("/", () => Results.Redirect(AgentLedger.Web.Components.Formatting.WorkLink.Path)).ExcludeFromDescription();
+    app.MapGet("/settings", () => Results.Redirect("/settings/machines")).ExcludeFromDescription();
+    app.MapCliDownloads(); // the CLI and its installers (ADR 0024)
 
     if (app.Environment.IsDevelopment())
     {

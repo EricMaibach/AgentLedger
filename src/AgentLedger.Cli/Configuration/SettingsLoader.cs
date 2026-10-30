@@ -30,8 +30,9 @@ internal sealed class SettingsLoader(IHostEnvironment environment)
     var timeout = Resolve("AGENTLEDGER_TIMEOUT_MS", "timeoutMs", ParseTimeout, DefaultTimeout, [project, user], warnings);
     var spool = Resolve("AGENTLEDGER_SPOOL_DIR", "spoolDir", value => (true, value), Path.Combine(environment.LocalDataDirectory, "agentledger", "spool"), [project, user], warnings);
     var enabled = Resolve("AGENTLEDGER_ENABLED", "enabled", ParseBool, true, [project, user], warnings); // per-project opt-out (ADR 0013)
+    var autoUpdate = Resolve("AGENTLEDGER_AUTO_UPDATE", "autoUpdate", ParseBool, true, [user], warnings); // per machine, not project (ADR 0024)
 
-    return new CliSettings(url, apiKey, timeout, spool, enabled, warnings);
+    return new CliSettings(url, apiKey, timeout, spool, enabled, warnings) { AutoUpdate = autoUpdate };
   }
 
   private Setting<T> Resolve<T>(string variable, string key, Func<string, (bool Ok, T Value)> parse, T defaultValue,

@@ -484,3 +484,6 @@ $RECYCLE.BIN/
 # Local Claude Code settings and capture-probe output
 .claude/settings.local.json
 .probe/
+
+# CLI binaries put in place by the release workflow for the API image (ADR 0024)
+src/AgentLedger.Web/cli-binaries/

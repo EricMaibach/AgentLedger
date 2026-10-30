@@ -11,15 +11,12 @@ jobs:
   ci:
     uses: ./.github/workflows/ci.yml
 
-  api-image:
-    needs: ci
+  version:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write # push to ghcr.io with the workflow's own token
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      image: ${{ steps.version.outputs.image }}
     steps:
-      - uses: actions/checkout@v7
-
       - name: Read the version from the release tag
         id: version
         run: |
@@ -31,6 +28,67 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           # Registry paths must be lowercase; the owner name may not be.
           echo "image=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/agentledger-api" >> "$GITHUB_OUTPUT"
+
+  # The CLI for every platform the ledger serves (ADR 0024). Native AOT can't build for another operating system, so
+  # each is built on a runner of its own kind (macOS builds both architectures).
+  cli:
+    needs: [ci, version]
+    strategy:
+      matrix:
+        include:
+          - { rid: linux-x64, os: ubuntu-latest, file: agentledger }
+          - { rid: linux-arm64, os: ubuntu-24.04-arm, file: agentledger }
+          - { rid: osx-arm64, os: macos-latest, file: agentledger }
+          - { rid: osx-x64, os: macos-latest, file: agentledger }
+          - { rid: win-x64, os: windows-latest, file: agentledger.exe }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Install the native toolchain
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends clang zlib1g-dev
+
+      - name: Publish Native AOT
+        shell: bash
+        run: >
+          dotnet publish src/AgentLedger.Cli --configuration Release --runtime ${{ matrix.rid }} --output out
+          -p:Version=${{ needs.version.outputs.version }} -p:SourceRevisionId=${{ github.sha }}
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: cli-${{ matrix.rid }}
+          path: out/${{ matrix.file }}
+          if-no-files-found: error
+
+  api-image:
+    needs: [ci, version, cli]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # attach the CLI binaries to the release
+      packages: write # push to ghcr.io with the workflow's own token
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v6
+        with:
+          pattern: cli-*
+          path: artifacts
+
+      # Into the Web project's cli-binaries folder, which it publishes: the image serves them (ADR 0024).
+      - name: Put the CLI binaries in place
+        run: |
+          for dir in artifacts/cli-*; do
+            rid="${dir#artifacts/cli-}"
+            mkdir -p "src/AgentLedger.Web/cli-binaries/$rid"
+            cp "$dir"/* "src/AgentLedger.Web/cli-binaries/$rid/"
+          done
+          ls -R src/AgentLedger.Web/cli-binaries
+          test "$(find src/AgentLedger.Web/cli-binaries -type f | wc -l)" -eq 5
 
       - uses: docker/setup-buildx-action@v4
 
@@ -45,9 +103,9 @@ jobs:
       - id: meta
         uses: docker/metadata-action@v6
         with:
-          images: ${{ steps.version.outputs.image }}
+          images: ${{ needs.version.outputs.image }}
           tags: |
-            type=raw,value=${{ steps.version.outputs.version }}
+            type=raw,value=${{ needs.version.outputs.version }}
             type=raw,value=latest,enable=${{ !github.event.release.prerelease }}
 
       - uses: docker/build-push-action@v7
@@ -57,7 +115,29 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            VERSION=${{ steps.version.outputs.version }}
+            VERSION=${{ needs.version.outputs.version }}
             SOURCE_REVISION=${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Check the image serves every CLI
+        run: |
+          image="${{ needs.version.outputs.image }}:${{ needs.version.outputs.version }}"
+          for rid in linux-x64 linux-arm64 osx-arm64 osx-x64 win-x64; do
+            docker run --rm --entrypoint sh "$image" -c "ls /app/cli-binaries/$rid/agentledger*" \
+              || { echo "missing from the image: $rid"; exit 1; }
+          done
+
+      # Also on the release page, for anyone installing without a ledger at hand.
+      - name: Attach the CLI binaries to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p release-assets
+          for dir in artifacts/cli-*; do
+            rid="${dir#artifacts/cli-}"
+            for file in "$dir"/*; do
+              case "$file" in *.exe) cp "$file" "release-assets/agentledger-$rid.exe" ;; *) cp "$file" "release-assets/agentledger-$rid" ;; esac
+            done
+          done
+          gh release upload "$GITHUB_REF_NAME" release-assets/* --clobber

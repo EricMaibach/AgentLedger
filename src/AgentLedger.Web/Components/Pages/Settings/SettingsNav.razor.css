@@ -1,0 +1,18 @@
+.settings-nav {
+  display: flex;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+  font-size: var(--text-sm);
+}
+
+.settings-nav ::deep a {
+  color: var(--color-text-muted);
+  text-decoration: none;
+  padding-bottom: var(--space-1);
+  border-bottom: 2px solid transparent;
+}
+
+.settings-nav ::deep a.active {
+  color: var(--color-text);
+  border-bottom-color: var(--color-accent);
+}

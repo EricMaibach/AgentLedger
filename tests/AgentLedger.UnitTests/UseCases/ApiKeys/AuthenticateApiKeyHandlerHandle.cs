@@ -55,6 +55,14 @@ public sealed class AuthenticateApiKeyHandlerHandle
     await _repository.Received(1).UpdateAsync(_key, Arg.Any<CancellationToken>());
   }
 
+  [Fact]
+  public async Task RecordsTheClientVersion()
+  {
+    await _handler.Handle(new AuthenticateApiKeyCommand(_builder.Token.Value, "0.6.0"), CancellationToken.None);
+
+    _key.LastClientVersion.ShouldBe("0.6.0");
+  }
+
   [Theory]
   [InlineData(null)]
   [InlineData("")]

@@ -162,4 +162,23 @@ public sealed class SettingsLoaderLoad : IDisposable
     settings.Url.Value.ShouldBe(new Uri("http://from-user:3"));
     settings.Warnings.ShouldContain(w => w.Contains(projectFile));
   }
+
+  [Fact]
+  public void UpdatesItselfByDefault()
+  {
+    new SettingsLoader(new FakeHostEnvironment()).Load("/tmp").AutoUpdate.Value.ShouldBeTrue();
+  }
+
+  [Fact]
+  public void CanBeToldNotToUpdateItself()
+  {
+    // For anyone who wants to control updates (ADR 0024).
+    using var temp = new TempDirectory();
+    var env = new FakeHostEnvironment { UserConfigDirectory = temp.Path };
+    temp.Write("agentledger/config.json", """{"autoUpdate":false}""");
+
+    new SettingsLoader(env).Load(temp.Path).AutoUpdate.Value.ShouldBeFalse();
+    env.Variables["AGENTLEDGER_AUTO_UPDATE"] = "true";
+    new SettingsLoader(env).Load(temp.Path).AutoUpdate.Value.ShouldBeTrue();
+  }
 }

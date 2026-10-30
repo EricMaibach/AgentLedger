@@ -71,20 +71,24 @@ public static class AuthenticationConfig
         .AddAuthenticationSchemes(apiKey)
         .RequireAuthenticatedUser());
 
-    // Only login attempts are limited, not loading the page. Behind a reverse proxy every request has the
-    // proxy's address; forwarded headers come with HTTPS support (roadmap, Phase 2 step 4).
+    // Only guessable credentials are limited: login attempts and enrollment codes (ADR 0024), each counted
+    // separately, not loading the pages. Behind a reverse proxy every request has the proxy's address; forwarded
+    // headers come with HTTPS support (roadmap, Phase 2 step 4).
     services.AddRateLimiter(options =>
     {
       options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
       options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(http =>
-        HttpMethods.IsPost(http.Request.Method) && http.Request.Path.Equals("/login", StringComparison.OrdinalIgnoreCase)
-          ? RateLimitPartition.GetFixedWindowLimiter(http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        HttpMethods.IsPost(http.Request.Method) && LimitedPath(http.Request.Path) is { } path
+          ? RateLimitPartition.GetFixedWindowLimiter($"{path} {http.Connection.RemoteIpAddress?.ToString() ?? "unknown"}",
               _ => new FixedWindowRateLimiterOptions { PermitLimit = loginAttemptsPerMinute, Window = TimeSpan.FromMinutes(1) })
           : RateLimitPartition.GetNoLimiter(string.Empty));
     });
 
     return services;
   }
+
+  private static string? LimitedPath(PathString path) =>
+    new[] { "/login", Enrollment.Enroll.Path }.FirstOrDefault(p => path.Equals(p, StringComparison.OrdinalIgnoreCase));
 
   /// <summary>Sign-out: a POST with the antiforgery token, so another site can't sign you out.</summary>
   public static IEndpointRouteBuilder MapSignOut(this IEndpointRouteBuilder endpoints)
